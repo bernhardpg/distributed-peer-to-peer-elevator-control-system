@@ -137,7 +137,7 @@ func PollObstructionSwitch(receiver chan<- bool) {
 }
 
 // Main routine for reading io values and passing them on to corresponding channels
-func IOReader(numFloors int, NewOrder chan<- ButtonEvent, ArrivedAtFloor chan<- int) {
+func IOReader(numFloors int, NewOrder chan<- ButtonEvent, ArrivedAtFloor chan<- int, FloorIndicator chan<- int) {
 	drv_buttons := make(chan ButtonEvent)
 	drv_floors := make(chan int)
 	drv_obstr := make(chan bool)
@@ -155,6 +155,7 @@ func IOReader(numFloors int, NewOrder chan<- ButtonEvent, ArrivedAtFloor chan<- 
 
 		case a := <-drv_floors:
 			ArrivedAtFloor <- a;
+			FloorIndicator <- a;
 
 		case a := <-drv_obstr:
 			fmt.Printf("%+v\n", a);
