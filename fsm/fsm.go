@@ -1,8 +1,7 @@
 package fsm
 
 import (
-	"fmt"
-	"../driver/elevio"
+	"../elevio"
 	"time"
 )
 
@@ -107,7 +106,7 @@ func calculateNextOrder(currFloor int, currDir OrderDir, assignedOrders [][] boo
 
 func hasOrders(assignedOrders [][]bool) (bool) {
 	for floor := 0; floor < len(assignedOrders); floor++ {
-		for orderType := 0; orderType < 3; orderType++ {
+		for orderType := elevio.BT_HallUp; orderType <= elevio.BT_Cab; orderType++ {
 			if assignedOrders[floor][orderType] == true {
 				return true;
 			}
@@ -125,13 +124,19 @@ func calculateDirection(currFloor int, currOrder int) (OrderDir) {
 	}
 }
 
-func clearOrdersAtFloor(currFloor int, assignedOrders [][]bool) {
-	for i := 0; i < 3; i++ {
-		assignedOrders[currFloor][i] = false;
+func clearOrdersAtFloor(currFloor int, assignedOrders [][]bool, TurnOffLights chan elevio.ButtonEvent) {
+	for orderType := elevio.BT_HallUp; orderType <= elevio.BT_Cab; orderType++ {
+		assignedOrders[currFloor][orderType] = false;
+		TurnOffLights <- elevio.ButtonEvent{currFloor, elevio.ButtonType(orderType)};
 	}
 }
 
-func StateHandler(numFloors int, NewOrder chan elevio.ButtonEvent, ArrivedAtFloor chan int) {
+func setOrder(buttonPress elevio.ButtonEvent, assignedOrders [][]bool, TurnOnLights chan elevio.ButtonEvent) {
+	assignedOrders[buttonPress.Floor][buttonPress.Button] = true;
+	TurnOnLights <- buttonPress;
+}
+
+func StateHandler(numFloors int, NewOrder chan elevio.ButtonEvent, ArrivedAtFloor chan int, TurnOffLights chan elevio.ButtonEvent, TurnOnLights chan elevio.ButtonEvent) {
 	// Initialize variables	
 	// -----
 	currOrder := -1;
@@ -220,8 +225,9 @@ func StateHandler(numFloors int, NewOrder chan elevio.ButtonEvent, ArrivedAtFloo
 			}
 
 			if currFloor == currOrder {
-				clearOrdersAtFloor(currFloor, assignedOrders);
-				state <- DoorOpen;				
+				clearOrdersAtFloor(currFloor, assignedOrders, TurnOffLights);
+				state <- DoorOpen;
+
 			}
 
 
@@ -229,10 +235,10 @@ func StateHandler(numFloors int, NewOrder chan elevio.ButtonEvent, ArrivedAtFloo
 			// TODO to be replaced with channel input from optimal assigner
 			
 			// Only open door if already on floor (and not moving)
-			if a.Floor == currFloor && !moving{
+			if a.Floor == currFloor && !moving {
 				state <- DoorOpen;
 			} else {
-				assignedOrders[a.Floor][a.Button] = true;
+				setOrder(a, assignedOrders, TurnOnLights);
 				if !doorOpen {
 					state <- Moving;
 				}
