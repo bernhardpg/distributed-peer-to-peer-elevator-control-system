@@ -6,7 +6,6 @@ import "net"
 import "fmt"
 
 
-
 const _pollRate = 20 * time.Millisecond
 
 var _initialized bool = false
@@ -34,10 +33,6 @@ type ButtonEvent struct {
 	Floor  int
 	Button ButtonType
 }
-
-
-
-
 
 
 func Init(addr string, numFloors int) {
@@ -141,10 +136,34 @@ func PollObstructionSwitch(receiver chan<- bool) {
 	}
 }
 
+// Main routine for reading io values and passing them on to corresponding channels
+func IOReader(numFloors int, NewOrder chan<- ButtonEvent, ArrivedAtFloor chan<- int) {
+	drv_buttons := make(chan ButtonEvent)
+	drv_floors := make(chan int)
+	drv_obstr := make(chan bool)
+	drv_stop := make(chan bool)
 
+	go PollButtons(drv_buttons)
+	go PollFloorSensor(drv_floors)
+	go PollObstructionSwitch(drv_obstr)
+	go PollStopButton(drv_stop)
 
+	for {
+		select {
+		case a := <-drv_buttons:
+			NewOrder <- a;
 
+		case a := <-drv_floors:
+			ArrivedAtFloor <- a;
 
+		case a := <-drv_obstr:
+			fmt.Printf("%+v\n", a);
+
+		case a := <-drv_stop:
+			fmt.Printf("%+v\n", a)
+		}
+	}
+}
 
 
 func getButton(button ButtonType, floor int) bool {
