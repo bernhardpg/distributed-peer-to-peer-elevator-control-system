@@ -41,43 +41,21 @@ type Req struct {
 	ackBy []nodeId;
 }*/
 
-// ------
-
 	
-	// Initialize locally assigned orders matrix
-	/*var locallyAssignedOrders = make([][]Req, numFloors);
-	for i := range assignedOrders {
-		assignedOrders[i] = make([]Req, numStates);
-	}
+// Initialize locally assigned orders matrix
+/*var locallyAssignedOrders = make([][]Req, numFloors);
+for i := range assignedOrders {
+	assignedOrders[i] = make([]Req, numStates);
+}
 
-	// Initialize all to unknown
-	for floor := range assignedOrders {
-		for orderType := range assignedOrders[floor] {
-			assignedOrders[floor][orderType].state = Unknown;
-		}
-	}*/
-
-
-//if (!initialized)
-//	don't accept orders until initialized
-
-//STATES: Init, Idle, DoorOpen, Moving
-
-/*func goIdle() {
-	if (!moving && NoOrders) || (doorOpen && time == 3 sec && NoOrders) || (lastState == init) {
-		idle = true;
-	}
-	else {
-		idle = false;
+// Initialize all to unknown
+for floor := range assignedOrders {
+	for orderType := range assignedOrders[floor] {
+		assignedOrders[floor][orderType].state = Unknown;
 	}
 }*/
 
 func calculateNextOrder(currFloor int, currDir OrderDir, assignedOrders [][] bool) (int) {
-	if (!hasOrders(assignedOrders)) {
-		fmt.Println("No orders! Will loop forever");
-		return -1;
-	}
-
 	numFloors := len(assignedOrders);
 
 	// Find the order closest to floor currFloor, checking only orders in direction currDir first
@@ -153,7 +131,9 @@ func clearOrdersAtFloor(currFloor int, assignedOrders [][]bool) {
 	}
 }
 
-func FSM(numFloors int, NewOrder chan elevio.ButtonEvent, ArrivedAtFloor chan int) {	
+func StateHandler(numFloors int, NewOrder chan elevio.ButtonEvent, ArrivedAtFloor chan int) {
+	// Initialize variables	
+	// -----
 	currOrder := -1;
 	currFloor := -1;
 	var currDir OrderDir = Up;
@@ -170,31 +150,38 @@ func FSM(numFloors int, NewOrder chan elevio.ButtonEvent, ArrivedAtFloor chan in
 		}
 	}
 
-	initialized := false;
 	doorOpen := false;
 	moving := false;
-	elevio.SetMotorDirection(elevio.MD_Up);
-	
 	state := make(chan ElevState);
 
+	// Initialize elevator
+	// -----
+	elevio.SetMotorDirection(elevio.MD_Up);
+	initialized := false;
+
 	// State transition handler
+	// -----
 	go func() {
 		doorOpenTime := 3 * time.Second;
 
 		for {
 			select {
 			case a := <- state:
-				if a == DoorOpen {
+				switch a {
+
+				case DoorOpen:
 					moving = false;
 					doorOpen = true;
+					elevio.SetMotorDirection(elevio.MD_Stop);
 					elevio.SetDoorOpenLamp(true);
 					doorTimer.Reset(doorOpenTime);
-				} else if a == Idle {
+
+				case Idle:
 					elevio.SetMotorDirection(elevio.MD_Stop);
-				} else if a == Moving {
+
+				case Moving:
 					moving = true;
 					currOrder = calculateNextOrder(currFloor, currDir, assignedOrders);
-					fmt.Println("New current order: ", currOrder);
 					currDir = calculateDirection(currFloor, currOrder);
 
 					if currDir == Up {
@@ -207,43 +194,33 @@ func FSM(numFloors int, NewOrder chan elevio.ButtonEvent, ArrivedAtFloor chan in
 		}
 	}()
 
-
+	// State selector
+	// -----
 	for {
 		select {
-		// Doors have been open for desired period of time
+		
 		case <- doorTimer.C:
+		// Door have been open for the desired period of time
 			doorOpen = false;
 			if initialized {
 				elevio.SetDoorOpenLamp(false);
 				if hasOrders(assignedOrders) {
-					fmt.Println("More orders, continue");
 					state <- Moving;
 				} else {
-					fmt.Println("No orders, go idle");
 					state <- Idle;
 				}
 			}
 
 		case a := <- ArrivedAtFloor:
 			currFloor = a;
-			fmt.Println("Arrived at floor: ", currFloor);
 
 			if !initialized {
 				initialized = true;
-				fmt.Println("Going to idle state");
 				state <- Idle;
 			}
 
-			// TODO Do we need to check for top and bottom?
-			/*// Hit the top floor
-			if currFloor == numFloors - 1 {
-
-			}*/
-
 			if currFloor == currOrder {
-				fmt.Println("Arrived at desired floor");
 				clearOrdersAtFloor(currFloor, assignedOrders);
-				elevio.SetMotorDirection(elevio.MD_Stop);
 				state <- DoorOpen;				
 			}
 
@@ -251,7 +228,7 @@ func FSM(numFloors int, NewOrder chan elevio.ButtonEvent, ArrivedAtFloor chan in
 		case a := <- NewOrder:
 			// TODO to be replaced with channel input from optimal assigner
 			
-			// Only open door if already on floor
+			// Only open door if already on floor (and not moving)
 			if a.Floor == currFloor && !moving{
 				state <- DoorOpen;
 			} else {
