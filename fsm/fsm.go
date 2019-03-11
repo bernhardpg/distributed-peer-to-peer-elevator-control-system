@@ -78,19 +78,41 @@ func calculateNextOrder(currFloor int, currDir OrderDir, assignedOrders [][] boo
 		return -1;
 	}
 
-	// Return first order in current direction
+	numFloors := len(assignedOrders);
+
+	// Find the order closest to floor currFloor, checking only orders in direction currDir first
 	if currDir == Up {
-		for floor := 0; floor < currFloor; floor++ {
-			for orderType := 0; orderType < 3; orderType++ {
+		for floor := currFloor + 1; floor <= numFloors - 1; floor++ {
+			for orderType := elevio.BT_HallUp; orderType <= elevio.BT_Cab; orderType++ {
+				if orderType == elevio.BT_HallDown {
+					// Skip orders of opposite directon
+					continue;
+				}
 				if assignedOrders[floor][orderType] == true {
 					return floor;
 				}
 			}
 		}
+		// Check orders of opposite directon last
+		for floor := currFloor + 1; floor <= numFloors - 1; floor++ {
+			if assignedOrders[floor][elevio.BT_HallDown] == true {
+				return floor;
+			}
+		}
 	} else {
 		for floor := currFloor - 1; floor >= 0; floor-- {
-			for orderType := 0; orderType < 3; orderType++ {
+			for orderType := elevio.BT_HallUp; orderType <= elevio.BT_Cab; orderType++ {
+				if orderType == elevio.BT_HallUp {
+					// Skip orders of opposite directon
+					continue;
+				}
 				if assignedOrders[floor][orderType] == true {
+					return floor;
+				}
+			}
+			// Check orders of opposite directon last
+			for floor := currFloor - 1; floor >= 0; floor-- {
+				if assignedOrders[floor][elevio.BT_HallUp] == true {
 					return floor;
 				}
 			}
@@ -125,30 +147,9 @@ func calculateDirection(currFloor int, currOrder int) (OrderDir) {
 	}
 }
 
-func transitionHandler(state chan ElevState, currFloor int, currOrder int, currDir OrderDir, assignedOrders [][]bool, doorTimer *time.Timer) {
-	doorOpenTime := 3 * time.Second;
-
-	for {
-		select {
-		case a := <- state:
-			fmt.Println("Received state msg: ", a);
-			if a == DoorOpen {
-				elevio.SetDoorOpenLamp(true);
-				doorTimer.Reset(doorOpenTime);
-			} else if a == Idle {
-				elevio.SetMotorDirection(elevio.MD_Stop);
-			} else if a == Moving {
-				currOrder = calculateNextOrder(currFloor, currDir, assignedOrders);
-				fmt.Println("New current order: ", currOrder);
-				currDir = calculateDirection(currFloor, currOrder);
-
-				if currDir == Up {
-					elevio.SetMotorDirection(elevio.MD_Up);
-				} else {
-					elevio.SetMotorDirection(elevio.MD_Down);
-				}
-			}
-		}	
+func clearOrdersAtFloor(currFloor int, assignedOrders [][]bool) {
+	for i := 0; i < 3; i++ {
+		assignedOrders[currFloor][i] = false;
 	}
 }
 
@@ -170,27 +171,62 @@ func FSM(numFloors int, NewOrder chan elevio.ButtonEvent, ArrivedAtFloor chan in
 	}
 
 	initialized := false;
+	doorOpen := false;
+	moving := false;
 	elevio.SetMotorDirection(elevio.MD_Up);
 	
 	state := make(chan ElevState);
-	go transitionHandler(state, currFloor, currOrder, currDir, assignedOrders, doorTimer);
+
+	// State transition handler
+	go func() {
+		doorOpenTime := 3 * time.Second;
+
+		for {
+			select {
+			case a := <- state:
+				if a == DoorOpen {
+					moving = false;
+					doorOpen = true;
+					elevio.SetDoorOpenLamp(true);
+					doorTimer.Reset(doorOpenTime);
+				} else if a == Idle {
+					elevio.SetMotorDirection(elevio.MD_Stop);
+				} else if a == Moving {
+					moving = true;
+					currOrder = calculateNextOrder(currFloor, currDir, assignedOrders);
+					fmt.Println("New current order: ", currOrder);
+					currDir = calculateDirection(currFloor, currOrder);
+
+					if currDir == Up {
+						elevio.SetMotorDirection(elevio.MD_Up);
+					} else {
+						elevio.SetMotorDirection(elevio.MD_Down);
+					}
+				}
+			}	
+		}
+	}()
+
 
 	for {
 		select {
 		// Doors have been open for desired period of time
 		case <- doorTimer.C:
+			doorOpen = false;
 			if initialized {
 				elevio.SetDoorOpenLamp(false);
 				if hasOrders(assignedOrders) {
+					fmt.Println("More orders, continue");
 					state <- Moving;
 				} else {
+					fmt.Println("No orders, go idle");
 					state <- Idle;
 				}
 			}
 
 		case a := <- ArrivedAtFloor:
-			fmt.Println("Arrived at floor: ", a);
 			currFloor = a;
+			fmt.Println("Arrived at floor: ", currFloor);
 
 			if !initialized {
 				initialized = true;
@@ -206,6 +242,7 @@ func FSM(numFloors int, NewOrder chan elevio.ButtonEvent, ArrivedAtFloor chan in
 
 			if currFloor == currOrder {
 				fmt.Println("Arrived at desired floor");
+				clearOrdersAtFloor(currFloor, assignedOrders);
 				elevio.SetMotorDirection(elevio.MD_Stop);
 				state <- DoorOpen;				
 			}
@@ -213,9 +250,16 @@ func FSM(numFloors int, NewOrder chan elevio.ButtonEvent, ArrivedAtFloor chan in
 
 		case a := <- NewOrder:
 			// TODO to be replaced with channel input from optimal assigner
-			assignedOrders[a.Floor][a.Button] = true;
-			state <- Moving;
-			// TODO Keep door open when ordered to current floor
+			
+			// Only open door if already on floor
+			if a.Floor == currFloor && !moving{
+				state <- DoorOpen;
+			} else {
+				assignedOrders[a.Floor][a.Button] = true;
+				if !doorOpen {
+					state <- Moving;
+				}
+			}
 		}
 	}
 }
