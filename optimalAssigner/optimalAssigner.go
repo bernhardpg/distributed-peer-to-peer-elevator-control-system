@@ -2,6 +2,7 @@ package optimalAssigner
 
 import (
 	"os/exec"
+	"../fsm"
 	"fmt"
 	"log"
 	"os"
@@ -10,6 +11,8 @@ import (
 
 type OptimalAssignerChns struct {
 	HallOrdersChan chan [][] bool
+	CabOrdersChan chan [] bool
+	ElevStateChan chan fsm.ElevStateObject
 }
 	/*
 
@@ -45,7 +48,7 @@ type OptimalAssignerChns struct {
 }*/
 
 // TODO export comment
-func Assigner(HallOrdersChan <-chan [][] bool) {
+func Assigner(HallOrdersChan <-chan [][] bool, CabOrdersChan <-chan [] bool, ElevStateChan <-chan fsm.ElevStateObject) {
 	for {
 		select {
 			case a := <- HallOrdersChan:

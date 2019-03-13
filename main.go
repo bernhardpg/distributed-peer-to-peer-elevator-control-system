@@ -21,15 +21,18 @@ func main() {
 	}
 	optimalAssignerChns := optimalAssigner.OptimalAssignerChns {
 		HallOrdersChan: make(chan [][] bool),
+		CabOrdersChan: make(chan [] bool),
+		ElevStateChan: make(chan fsm.ElevStateObject),
 	}
 
 	elevio.Init("localhost:15657", numFloors);
 
 	go elevio.IOReader(numFloors, fsmChns.NewOrder, fsmChns.ArrivedAtFloor, iolightsChns.FloorIndicator);
-	go fsm.StateHandler(numFloors, fsmChns.NewOrder, fsmChns.ArrivedAtFloor, iolightsChns.TurnOffLights, iolightsChns.TurnOnLights, optimalAssignerChns.HallOrdersChan);
+	go fsm.StateHandler(numFloors, fsmChns.NewOrder, fsmChns.ArrivedAtFloor, iolightsChns.TurnOffLights, iolightsChns.TurnOnLights,
+		optimalAssignerChns.HallOrdersChan, optimalAssignerChns.CabOrdersChan, optimalAssignerChns.ElevStateChan);
 	go iolights.LightHandler(numFloors, iolightsChns.TurnOffLights, iolightsChns.TurnOnLights, iolightsChns.FloorIndicator);
 
-	go optimalAssigner.Assigner(optimalAssignerChns.HallOrdersChan);
+	go optimalAssigner.Assigner(optimalAssignerChns.HallOrdersChan, optimalAssignerChns.CabOrdersChan, optimalAssignerChns.ElevStateChan);
 
 	for {};
 }
