@@ -4,26 +4,32 @@ import (
 	"./fsm"
 	"./elevio"
 	"./iolights"
+	"./optimalAssigner"
 )
 
 func main() {
 	numFloors := 4;
 
-	fsmChans := fsm.StateMachineChannels {
+	fsmChns := fsm.StateMachineChannels {
 		NewOrder: make(chan elevio.ButtonEvent),
 		ArrivedAtFloor: make(chan int),
 	}
-	iolightsChans := iolights.LightsChannel {
+	iolightsChns := iolights.LightsChannel {
 		TurnOnLights: make(chan elevio.ButtonEvent),
 		TurnOffLights: make(chan elevio.ButtonEvent),
 		FloorIndicator: make(chan int),
 	}
+	optimalAssignerChns := optimalAssigner.OptimalAssignerChns {
+		HallOrdersChan: make(chan [][] bool),
+	}
 
 	elevio.Init("localhost:15657", numFloors);
 
-	go elevio.IOReader(numFloors, fsmChans.NewOrder, fsmChans.ArrivedAtFloor, iolightsChans.FloorIndicator);
-	go fsm.StateHandler(numFloors, fsmChans.NewOrder, fsmChans.ArrivedAtFloor, iolightsChans.TurnOffLights, iolightsChans.TurnOnLights);
-	go iolights.LightHandler(numFloors, iolightsChans.TurnOffLights, iolightsChans.TurnOnLights, iolightsChans.FloorIndicator);
+	go elevio.IOReader(numFloors, fsmChns.NewOrder, fsmChns.ArrivedAtFloor, iolightsChns.FloorIndicator);
+	go fsm.StateHandler(numFloors, fsmChns.NewOrder, fsmChns.ArrivedAtFloor, iolightsChns.TurnOffLights, iolightsChns.TurnOnLights, optimalAssignerChns.HallOrdersChan);
+	go iolights.LightHandler(numFloors, iolightsChns.TurnOffLights, iolightsChns.TurnOnLights, iolightsChns.FloorIndicator);
+
+	go optimalAssigner.Assigner(optimalAssignerChns.HallOrdersChan);
 
 	for {};
 }

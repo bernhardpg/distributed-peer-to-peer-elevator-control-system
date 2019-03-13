@@ -125,18 +125,17 @@ func calculateDirection(currFloor int, currOrder int) (orderDir) {
 	return down;
 }
 
-func clearOrdersAtFloor(currFloor int, assignedOrders [][]bool, TurnOffLights chan elevio.ButtonEvent) {
+func clearOrdersAtFloor(currFloor int, assignedOrders [][]bool, TurnOffLights chan<- elevio.ButtonEvent) {
 	for orderType := elevio.BT_HallUp; orderType <= elevio.BT_Cab; orderType++ {
 		assignedOrders[currFloor][orderType] = false;
 		TurnOffLights <- elevio.ButtonEvent{currFloor, elevio.ButtonType(orderType)};
 	}
 }
 
-func setOrder(buttonPress elevio.ButtonEvent, assignedOrders [][]bool, TurnOnLights chan elevio.ButtonEvent) {
+func setOrder(buttonPress elevio.ButtonEvent, assignedOrders [][]bool, TurnOnLights chan<- elevio.ButtonEvent) {
 	assignedOrders[buttonPress.Floor][buttonPress.Button] = true;
 	TurnOnLights <- buttonPress;
 }
-
 
 func transitionTo(nextState elevState, currFloor int, currDir orderDir, assignedOrders [][] bool, doorTimer *time.Timer) (elevState, int, orderDir) {
 	state := nextState;
@@ -166,10 +165,9 @@ func transitionTo(nextState elevState, currFloor int, currDir orderDir, assigned
 	return state, currOrder, nextDir;
 }
 
-
 // StateHandler ...
 // GoRoutine for handling the states of a single elevator
-func StateHandler(numFloors int, NewOrder chan elevio.ButtonEvent, ArrivedAtFloor chan int, TurnOffLights chan elevio.ButtonEvent, TurnOnLights chan elevio.ButtonEvent) {
+func StateHandler(numFloors int, NewOrder <-chan elevio.ButtonEvent, ArrivedAtFloor <-chan int, TurnOffLights chan<- elevio.ButtonEvent, TurnOnLights chan<- elevio.ButtonEvent, HallOrderChan chan<- [][] bool) {
 	// Initialize variables	
 	// -----
 	currOrder := -1;
@@ -188,7 +186,7 @@ func StateHandler(numFloors int, NewOrder chan elevio.ButtonEvent, ArrivedAtFloo
 		}
 	}
 
-	var state elevState = initState;
+	state := initState;
 
 	// Initialize elevator
 	// -----
@@ -219,6 +217,7 @@ func StateHandler(numFloors int, NewOrder chan elevio.ButtonEvent, ArrivedAtFloo
 
 			if currFloor == currOrder {
 				clearOrdersAtFloor(currFloor, assignedOrders, TurnOffLights);
+				transmitHallOrders(assignedOrders, HallOrderChan);
 				state,_,_ = transitionTo(doorOpen, currFloor, currDir, assignedOrders, doorTimer);
 			}
 
@@ -231,6 +230,7 @@ func StateHandler(numFloors int, NewOrder chan elevio.ButtonEvent, ArrivedAtFloo
 				state,_,_ = transitionTo(doorOpen, currFloor, currDir, assignedOrders, doorTimer);
 			} else {
 				setOrder(a, assignedOrders, TurnOnLights);
+				transmitHallOrders(assignedOrders, HallOrderChan);
 				if state != doorOpen {
 					// Calculate new order
 					state, currOrder, currDir = transitionTo(moving, currFloor, currDir, assignedOrders, doorTimer);
@@ -238,4 +238,17 @@ func StateHandler(numFloors int, NewOrder chan elevio.ButtonEvent, ArrivedAtFloo
 			}
 		}
 	}
+}
+
+
+func transmitHallOrders(assignedOrders [][] bool, HallOrderChan chan<- [][]bool) {
+	// Construct hall order matrix
+	numFloors := len(assignedOrders);
+	hallOrders := make([][]bool, numFloors);
+
+	for i := range assignedOrders {
+		hallOrders[i] = assignedOrders[i][:elevio.BT_Cab];
+	}
+
+	HallOrderChan <- hallOrders;
 }
