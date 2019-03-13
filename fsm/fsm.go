@@ -87,11 +87,11 @@ func calculateNextOrder(currFloor int, currDir OrderDir, assignedOrders [][] boo
 					return floor;
 				}
 			}
-			// Check orders of opposite directon last
-			for floor := currFloor - 1; floor >= 0; floor-- {
-				if assignedOrders[floor][elevio.BT_HallUp] == true {
-					return floor;
-				}
+		}
+		// Check orders of opposite directon last
+		for floor := currFloor - 1; floor >= 0; floor-- {
+			if assignedOrders[floor][elevio.BT_HallUp] == true {
+				return floor;
 			}
 		}
 	}
