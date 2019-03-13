@@ -13,6 +13,9 @@ var _numFloors int = 4
 var _mtx sync.Mutex
 var _conn net.Conn
 
+
+// MotorDirection ...
+// Data type for holding the direction of the elevator motor
 type MotorDirection int
 
 const (

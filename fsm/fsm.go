@@ -5,23 +5,25 @@ import (
 	"time"
 )
 
+// StateMachineChannels ...
+// Channels used for communication with the Elevator FSM
 type StateMachineChannels struct {
 	NewOrder chan elevio.ButtonEvent
 	ArrivedAtFloor chan int 
 }
 
-type ElevState int;
+type elevState int;
 const (
-	Init ElevState = iota;
-	Idle
-	DoorOpen
-	Moving
+	initState elevState = iota;
+	idle
+	doorOpen
+	moving
 )
 
-type OrderDir int;
+type orderDir int;
 const (
-	Up = iota;
-	Down;
+	up = iota;
+	down;
 )
 
 /*// TODO move these data types to correct file!
@@ -54,11 +56,11 @@ for floor := range assignedOrders {
 	}
 }*/
 
-func calculateNextOrder(currFloor int, currDir OrderDir, assignedOrders [][] bool) (int) {
+func calculateNextOrder(currFloor int, currDir orderDir, assignedOrders [][] bool) (int) {
 	numFloors := len(assignedOrders);
 
 	// Find the order closest to floor currFloor, checking only orders in direction currDir first
-	if currDir == Up {
+	if currDir == up {
 		for floor := currFloor + 1; floor <= numFloors - 1; floor++ {
 			for orderType := elevio.BT_HallUp; orderType <= elevio.BT_Cab; orderType++ {
 				if orderType == elevio.BT_HallDown {
@@ -98,11 +100,10 @@ func calculateNextOrder(currFloor int, currDir OrderDir, assignedOrders [][] boo
 	}
 
 	// Check other directions if no orders are found
-	if currDir == Up {
-		return calculateNextOrder(currFloor, Down, assignedOrders);
-	} else {
-		return calculateNextOrder(currFloor, Up, assignedOrders);
+	if currDir == up {
+		return calculateNextOrder(currFloor, down, assignedOrders);
 	}
+	return calculateNextOrder(currFloor, up, assignedOrders);
 }
 
 func hasOrders(assignedOrders [][] bool) (bool) {
@@ -117,12 +118,11 @@ func hasOrders(assignedOrders [][] bool) (bool) {
 	return false;
 }
 
-func calculateDirection(currFloor int, currOrder int) (OrderDir) {
+func calculateDirection(currFloor int, currOrder int) (orderDir) {
 	if currOrder > currFloor {
-		return Up;
-	} else {
-		return Down;
+		return up;
 	}
+	return down;
 }
 
 func clearOrdersAtFloor(currFloor int, assignedOrders [][]bool, TurnOffLights chan elevio.ButtonEvent) {
@@ -138,25 +138,25 @@ func setOrder(buttonPress elevio.ButtonEvent, assignedOrders [][]bool, TurnOnLig
 }
 
 
-func transitionTo(nextState ElevState, currFloor int, currDir OrderDir, assignedOrders [][] bool, doorTimer *time.Timer) (ElevState, int, OrderDir) {
-	var state ElevState = nextState;
-	var currOrder int = 0;
-	var nextDir OrderDir = 0;
+func transitionTo(nextState elevState, currFloor int, currDir orderDir, assignedOrders [][] bool, doorTimer *time.Timer) (elevState, int, orderDir) {
+	state := nextState;
+	currOrder := 0;
+	var nextDir orderDir = up;
 
 	switch nextState {
-		case DoorOpen:
+		case doorOpen:
 			elevio.SetMotorDirection(elevio.MD_Stop);
 			elevio.SetDoorOpenLamp(true);
 			doorTimer.Reset(3 * time.Second);
 
-		case Idle:
+		case idle:
 			elevio.SetMotorDirection(elevio.MD_Stop);
 
-		case Moving:
+		case moving:
 			currOrder = calculateNextOrder(currFloor, currDir, assignedOrders);
 			nextDir = calculateDirection(currFloor, currOrder);
 
-			if nextDir == Up {
+			if nextDir == up {
 				elevio.SetMotorDirection(elevio.MD_Up);
 			} else {
 				elevio.SetMotorDirection(elevio.MD_Down);
@@ -166,12 +166,15 @@ func transitionTo(nextState ElevState, currFloor int, currDir OrderDir, assigned
 	return state, currOrder, nextDir;
 }
 
+
+// StateHandler ...
+// GoRoutine for handling the states of a single elevator
 func StateHandler(numFloors int, NewOrder chan elevio.ButtonEvent, ArrivedAtFloor chan int, TurnOffLights chan elevio.ButtonEvent, TurnOnLights chan elevio.ButtonEvent) {
 	// Initialize variables	
 	// -----
 	currOrder := -1;
 	currFloor := -1;
-	var currDir OrderDir = Up;
+	var currDir orderDir = up;
 	doorTimer := time.NewTimer(0);
 
 	assignedOrders := make([][]bool, numFloors);
@@ -185,7 +188,7 @@ func StateHandler(numFloors int, NewOrder chan elevio.ButtonEvent, ArrivedAtFloo
 		}
 	}
 
-	var state ElevState = Init;
+	var state elevState = initState;
 
 	// Initialize elevator
 	// -----
@@ -198,39 +201,39 @@ func StateHandler(numFloors int, NewOrder chan elevio.ButtonEvent, ArrivedAtFloo
 		
 		case <- doorTimer.C:
 			// Door has been open for the desired period of time
-			if state != Init {
+			if state != initState {
 				elevio.SetDoorOpenLamp(false);
 				if hasOrders(assignedOrders) {
-					state, currOrder, currDir = transitionTo(Moving, currFloor, currDir, assignedOrders, doorTimer);
+					state, currOrder, currDir = transitionTo(moving, currFloor, currDir, assignedOrders, doorTimer);
 				} else {
-					state,_,_ = transitionTo(Idle, currFloor, currDir, assignedOrders, doorTimer);
+					state,_,_ = transitionTo(idle, currFloor, currDir, assignedOrders, doorTimer);
 				}
 			}
 
 		case a := <- ArrivedAtFloor:
 			currFloor = a;
 
-			if state == Init {
-				state,_,_ = transitionTo(Idle, currFloor, currDir, assignedOrders, doorTimer);
+			if state == initState {
+				state,_,_ = transitionTo(idle, currFloor, currDir, assignedOrders, doorTimer);
 			}
 
 			if currFloor == currOrder {
 				clearOrdersAtFloor(currFloor, assignedOrders, TurnOffLights);
-				state,_,_ = transitionTo(DoorOpen, currFloor, currDir, assignedOrders, doorTimer);
+				state,_,_ = transitionTo(doorOpen, currFloor, currDir, assignedOrders, doorTimer);
 			}
 
 		case a := <- NewOrder:
 			// TODO to be replaced with channel input from optimal assigner
 			
 			// Only open door if already on floor (and not moving)
-			if a.Floor == currFloor && state != Moving {
+			if a.Floor == currFloor && state != moving {
 				// Open door without calculating new order
-				state,_,_ = transitionTo(DoorOpen, currFloor, currDir, assignedOrders, doorTimer);
+				state,_,_ = transitionTo(doorOpen, currFloor, currDir, assignedOrders, doorTimer);
 			} else {
 				setOrder(a, assignedOrders, TurnOnLights);
-				if state != DoorOpen {
+				if state != doorOpen {
 					// Calculate new order
-					state, currOrder, currDir = transitionTo(Moving, currFloor, currDir, assignedOrders, doorTimer);
+					state, currOrder, currDir = transitionTo(moving, currFloor, currDir, assignedOrders, doorTimer);
 				}
 			}
 		}

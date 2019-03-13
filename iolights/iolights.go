@@ -4,12 +4,16 @@ import (
 	"../elevio"
 )
 
+// LightsChannel ...
+// Channels used for communication with the Elevator LightHandler
 type LightsChannel struct {
 	TurnOffLights chan elevio.ButtonEvent
 	TurnOnLights chan elevio.ButtonEvent
 	FloorIndicator chan int
 }
 
+// LightHandler ...
+// GoRoutine for controller the lights of a single elevator
 func LightHandler(numFloors int, TurnOffLights chan elevio.ButtonEvent, TurnOnLights chan elevio.ButtonEvent, FloorIndicator chan int) {
 	// Turn off all lights at init
 	for floor := 0; floor < numFloors; floor++ {
