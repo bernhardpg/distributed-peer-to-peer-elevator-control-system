@@ -155,14 +155,12 @@ func StateHandler(numFloors int, NewOrder chan elevio.ButtonEvent, ArrivedAtFloo
 		}
 	}
 
-	doorOpen := false;
-	moving := false;
-	state := make(chan ElevState);
+	var state ElevState = Init;
+	transitionTo := make(chan ElevState);
 
 	// Initialize elevator
 	// -----
 	elevio.SetMotorDirection(elevio.MD_Up);
-	initialized := false;
 
 	// State transition handler
 	// -----
@@ -171,21 +169,21 @@ func StateHandler(numFloors int, NewOrder chan elevio.ButtonEvent, ArrivedAtFloo
 
 		for {
 			select {
-			case a := <- state:
+			case a := <- transitionTo:
 				switch a {
 
 				case DoorOpen:
-					moving = false;
-					doorOpen = true;
+					state = DoorOpen;
 					elevio.SetMotorDirection(elevio.MD_Stop);
 					elevio.SetDoorOpenLamp(true);
 					doorTimer.Reset(doorOpenTime);
 
 				case Idle:
+					state = Idle;
 					elevio.SetMotorDirection(elevio.MD_Stop);
 
 				case Moving:
-					moving = true;
+					state = Moving;
 					currOrder = calculateNextOrder(currFloor, currDir, assignedOrders);
 					currDir = calculateDirection(currFloor, currOrder);
 
@@ -205,28 +203,26 @@ func StateHandler(numFloors int, NewOrder chan elevio.ButtonEvent, ArrivedAtFloo
 		select {
 		
 		case <- doorTimer.C:
-		// Door have been open for the desired period of time
-			doorOpen = false;
-			if initialized {
+			// Door has been open for the desired period of time
+			if state != Init {
 				elevio.SetDoorOpenLamp(false);
 				if hasOrders(assignedOrders) {
-					state <- Moving;
+					transitionTo <- Moving;
 				} else {
-					state <- Idle;
+					transitionTo <- Idle;
 				}
 			}
 
 		case a := <- ArrivedAtFloor:
 			currFloor = a;
 
-			if !initialized {
-				initialized = true;
-				state <- Idle;
+			if state == Init {
+				transitionTo <- Idle;
 			}
 
 			if currFloor == currOrder {
 				clearOrdersAtFloor(currFloor, assignedOrders, TurnOffLights);
-				state <- DoorOpen;
+				transitionTo <- DoorOpen;
 
 			}
 
@@ -235,12 +231,12 @@ func StateHandler(numFloors int, NewOrder chan elevio.ButtonEvent, ArrivedAtFloo
 			// TODO to be replaced with channel input from optimal assigner
 			
 			// Only open door if already on floor (and not moving)
-			if a.Floor == currFloor && !moving {
-				state <- DoorOpen;
+			if a.Floor == currFloor && state != Moving {
+				transitionTo <- DoorOpen;
 			} else {
 				setOrder(a, assignedOrders, TurnOnLights);
-				if !doorOpen {
-					state <- Moving;
+				if state != DoorOpen {
+					transitionTo <- Moving;
 				}
 			}
 		}
