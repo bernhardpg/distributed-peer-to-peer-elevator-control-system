@@ -11,10 +11,10 @@ import (
 )
 
 
-type OptimalAssignerChns struct {
-	HallOrdersChan chan [][] bool
-	CabOrdersChan chan [] bool
-	ElevStateChan chan stateHandler.ElevState
+type OptimalAssignerChannels struct {
+	HallOrders chan [][] bool
+	CabOrders chan [] bool
+	ElevState chan stateHandler.ElevState
 }
 
 type singleElevStateJson struct {
