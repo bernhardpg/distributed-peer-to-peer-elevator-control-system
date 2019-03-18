@@ -27,7 +27,11 @@ func main() {
 		ElevState: make(chan stateHandler.ElevState),
 		AllElevStates: make(chan map[stateHandler.NodeID]stateHandler.ElevState),
 	}
-
+	stateHandlerChns := stateHandler.StateHandlerChannels {
+		LocalElevStateChan: make(chan stateHandler.ElevState),
+		RemoteElevStateChan: make(chan stateHandler.Elevstate),
+		AllElevStatesChan: make(chan map[stateHandler.NodeID] statehandler.Elevstate),
+	}
 
 
 	elevio.Init("localhost:15657", numFloors);
@@ -38,7 +42,7 @@ func main() {
 	go iolights.LightHandler(numFloors, iolightsChns.TurnOffLights, iolightsChns.TurnOnLights, iolightsChns.FloorIndicator);
 
 	fmt.Println("Started all modules");
-
+	go stateHandler.stateHandler(stateHandlerChns.LocalElevStateChan, stateHandlerChns.RemoteElevStateChan, stateHandlerChns.AllElevStatesChan)
 	go optimalAssigner.Assigner(numFloors,
 		optimalAssignerChns.HallOrders, optimalAssignerChns.CabOrders, optimalAssignerChns.ElevState, optimalAssignerChns.AllElevStates);
 

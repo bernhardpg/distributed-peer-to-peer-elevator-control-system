@@ -41,7 +41,6 @@ func stateHandler(LocalElevStateChan <-chan ElevState, RemoteElevStateChan <-cha
 //	LocalStateToNetwork := make(chan ElevState)
 	//AllStatesToAssigner := make(chan []ElevState)
 
-
 	//var localState ElevState
 	var allElevStates = make(map[NodeID]ElevState)
 
