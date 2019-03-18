@@ -2,48 +2,20 @@ package optimalAssigner
 
 import (
 	"os/exec"
-	"../fsm"
 	"fmt"
 	"log"
 	"os"
 	"time"
 	"encoding/json"
+	"../stateHandler"
 )
 
 
 type OptimalAssignerChns struct {
 	HallOrdersChan chan [][] bool
 	CabOrdersChan chan [] bool
-	ElevStateChan chan fsm.ElevStateObject
+	ElevStateChan chan stateHandler.ElevState
 }
-	/*
-
-	Goal json object input:
-	{
-	    "hallRequests" : 
-	        [[Boolean, Boolean], ...],
-	    "states" : 
-	        {
-	            "id_1" : {
-	                "behaviour"     : < "idle" | "moving" | "doorOpen" >
-	                "floor"         : NonNegativeInteger
-	                "direction"     : < "up" | "down" | "stop" >
-	                "cabRequests"   : [Boolean, ...]
-	            },
-	            "id_2" : {...}
-	        }
-	}
-
-*/ 
-
-	/* Json output 
-
-	{
-    "id_1" : [[Boolean, Boolean], ...],
-    "id_2" : ...
-	}
-
-	*/
 
 type singleElevStateJson struct {
 	Behaviour string 	`json:"behaviour"`
@@ -61,7 +33,7 @@ type optimizationDataJson struct {
 func encodeJson(currHallOrders [][]bool,
 	// Encodes the data for HallRequstAssigner script, according to
 	// Format required
-	currCabOrders []bool, currElevState fsm.ElevStateObject) ([]byte) {
+	currCabOrders []bool, currElevState stateHandler.ElevState) ([]byte) {
 
 	currStates := make(map[string] singleElevStateJson);
 
@@ -69,7 +41,7 @@ func encodeJson(currHallOrders [][]bool,
 	currBehaviour := "idle";
 	currDirection := "up";
 
-	//switch ElevStateObject.dir
+	//switch ElevState.dir
 
 	// TODO will need to iterate through all elements
 	currStates["id_curr"] = singleElevStateJson {
@@ -90,7 +62,7 @@ func encodeJson(currHallOrders [][]bool,
 
 // TODO export comment
 func Assigner(numFloors int, HallOrdersChan <-chan [][] bool, CabOrdersChan <-chan [] bool,
-	ElevStateChan <-chan fsm.ElevStateObject) {
+	ElevStateChan <-chan stateHandler.ElevState) {
 	// TODO change package time
 	encodePeriod := 500 * time.Millisecond;
 	encodeTimer := time.NewTimer(encodePeriod);
@@ -98,12 +70,7 @@ func Assigner(numFloors int, HallOrdersChan <-chan [][] bool, CabOrdersChan <-ch
 	currHallOrders := make([][] bool, numFloors); 
 	currCabOrders := make([] bool, numFloors);
 
-	// TODO move to stateHandler!!
-	currElevState := fsm.ElevStateObject {
-		State: fsm.InitState,
-		Floor: -1,
-		Dir: fsm.Up,
-	}
+	currElevState := stateHandler.ElevState {}
 
 	var currOptDataJson []byte;
 	var optimalAssignedOrders map[string]interface{};
@@ -138,7 +105,6 @@ func runOptimizer(currOptDataJson []byte) ([]byte){
 	}
 
 	// Run external script
-	// TODO stop script from running in new window!
 	cmd := exec.Command("sh", "-c",
 		dir + "/optimalAssigner/hall_request_assigner --input '" + string(currOptDataJson) + "'");
 	

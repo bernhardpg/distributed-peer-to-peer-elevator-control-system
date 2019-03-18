@@ -5,6 +5,7 @@ import (
 	"./elevio"
 	"./iolights"
 	"./optimalAssigner"
+	"./stateHandler"
 	"fmt"
 )
 
@@ -23,7 +24,7 @@ func main() {
 	optimalAssignerChns := optimalAssigner.OptimalAssignerChns {
 		HallOrdersChan: make(chan [][] bool),
 		CabOrdersChan: make(chan [] bool),
-		ElevStateChan: make(chan fsm.ElevStateObject),
+		ElevStateChan: make(chan stateHandler.ElevState),
 	}
 
 	elevio.Init("localhost:15657", numFloors);
