@@ -16,6 +16,7 @@ type OptimalAssignerChannels struct {
 	CabOrders chan [] bool
 	NewOrder chan elevio.ButtonEvent // TODO move to consensus module
 	LocallyAssignedOrders chan [][] bool
+	CompletedOrder chan int
 }
 
 type singleElevStateJson struct {
@@ -58,6 +59,7 @@ func encodeJson(currHallOrders [][]bool,
 		States: currStates,
 	}
 
+
 	currOptimizationInputJson,_ := json.Marshal(currOptimizationInput);
 	return currOptimizationInputJson;
 }
@@ -99,11 +101,17 @@ func setOrder(buttonPress elevio.ButtonEvent, hallOrders [][]bool, cabOrders []b
 	// TODO send orders to fsm!
 }
 
+func clearOrdersAtFloor(floor int, hallOrders [][]bool, cabOrders []bool) {
+	cabOrders[floor] = false
+	hallOrders[floor] = []bool{false, false}
+}
+
 func Assigner(localID stateHandler.NodeID, numFloors int,
 	HallOrdersChan <-chan [][] bool,
 	CabOrdersChan <-chan [] bool,
 	LocallyAssignedOrdersChan chan<- [][]bool,
 	NewOrderChan <-chan elevio.ButtonEvent,
+	CompletedOrderChan <-chan int,
 	AllElevStatesChan <-chan map[stateHandler.NodeID] stateHandler.ElevState) { 
 
 
@@ -142,12 +150,16 @@ func Assigner(localID stateHandler.NodeID, numFloors int,
 				fmt.Println(currAllElevStates)
 				fmt.Println(a)
 
-				currAllElevStates = a;
-				calcOptimalFlag = true;
+				currAllElevStates = a
+				calcOptimalFlag = true
 
 			case a := <- NewOrderChan:
-				setOrder(a, currHallOrders, currCabOrders);
-				calcOptimalFlag = true;
+				setOrder(a, currHallOrders, currCabOrders)
+				calcOptimalFlag = true
+
+			case a := <- CompletedOrderChan:
+				clearOrdersAtFloor(a, currHallOrders, currCabOrders)
+				calcOptimalFlag = true
 		}
 
 		if calcOptimalFlag {	

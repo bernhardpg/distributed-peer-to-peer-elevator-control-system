@@ -113,15 +113,6 @@ func calculateDirection(currFloor int, currOrder int) (stateHandler.OrderDir) {
 	return stateHandler.Down;
 }
 
-func clearOrdersAtFloor(currFloor int, assignedOrders [][]bool, TurnOffLights chan<- elevio.ButtonEvent) {
-	for orderType := elevio.BT_HallUp; orderType <= elevio.BT_Cab; orderType++ {
-		assignedOrders[currFloor][orderType] = false;
-		TurnOffLights <- elevio.ButtonEvent{currFloor, elevio.ButtonType(orderType)};
-	}
-
-	// TODO replace this with clearOrdersChan! 
-}
-
 func setOrder(buttonPress elevio.ButtonEvent, assignedOrders [][]bool, TurnOnLights chan<- elevio.ButtonEvent) {
 	assignedOrders[buttonPress.Floor][buttonPress.Button] = true;
 	TurnOnLights <- buttonPress;
@@ -137,6 +128,7 @@ func StateMachine(localID stateHandler.NodeID, numFloors int,
 	HallOrderChan chan<- [][] bool,
 	CabOrderChan chan<- [] bool,
 	LocallyAssignedOrdersChan <-chan [][] bool,
+	CompletedOrderChan chan<- int,
 	LocalElevStateChan chan<- stateHandler.ElevState) {
 	// Initialize variables	
 	// -----
@@ -176,6 +168,7 @@ func StateMachine(localID stateHandler.NodeID, numFloors int,
 		select {
 		
 		case <- doorTimer.C:
+			fmt.Println("Shutting door!")
 			// Door has been open for the desired period of time
 			if state != stateHandler.InitState {
 				elevio.SetDoorOpenLamp(false)
@@ -216,7 +209,7 @@ func StateMachine(localID stateHandler.NodeID, numFloors int,
 			}
 
 			if currFloor == currOrder {
-				clearOrdersAtFloor(currFloor, assignedOrders, TurnOffLights);
+				CompletedOrderChan <- currFloor
 				//transmitHallOrders(assignedOrders, HallOrderChan)
 				//transmitCabOrders(assignedOrders, CabOrderChan)
 				nextState = stateHandler.DoorOpen
@@ -250,6 +243,7 @@ func StateMachine(localID stateHandler.NodeID, numFloors int,
 			state = nextState
 			switch state {
 				case stateHandler.DoorOpen:
+					fmt.Println("Door open starting timer!")
 					elevio.SetMotorDirection(elevio.MD_Stop)
 					elevio.SetDoorOpenLamp(true)
 					doorTimer.Reset(doorOpenTime)
@@ -266,6 +260,7 @@ func StateMachine(localID stateHandler.NodeID, numFloors int,
 					// Already at desired floor
 					if currOrder == currFloor {
 						fmt.Println("Breaking!")
+						CompletedOrderChan <- currFloor
 						nextState = stateHandler.DoorOpen
 						break
 					}

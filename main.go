@@ -26,6 +26,7 @@ func main() {
 		HallOrders: make(chan [][] bool),
 		CabOrders: make(chan [] bool),
 		NewOrder: make(chan elevio.ButtonEvent),  // TODO move to consensus module
+		CompletedOrder: make(chan int),
 		LocallyAssignedOrders: make(chan [][] bool),
 	}
 	stateHandlerChns := stateHandler.StateHandlerChannels {
@@ -46,7 +47,7 @@ func main() {
 	go fsm.StateMachine(localID, numFloors,
 		optimalAssignerChns.NewOrder, fsmChns.ArrivedAtFloor,
 		iolightsChns.TurnOffLights, iolightsChns.TurnOnLights,
-		optimalAssignerChns.HallOrders, optimalAssignerChns.CabOrders, optimalAssignerChns.LocallyAssignedOrders,
+		optimalAssignerChns.HallOrders, optimalAssignerChns.CabOrders, optimalAssignerChns.LocallyAssignedOrders, optimalAssignerChns.CompletedOrder,
 		stateHandlerChns.LocalElevState);
 
 	go iolights.LightHandler(numFloors,
@@ -56,7 +57,7 @@ func main() {
 		stateHandlerChns.LocalElevState, stateHandlerChns.RemoteElevState, stateHandlerChns.AllElevStates)
 
 	go optimalAssigner.Assigner(localID, numFloors,
-		optimalAssignerChns.HallOrders, optimalAssignerChns.CabOrders, optimalAssignerChns.LocallyAssignedOrders, optimalAssignerChns.NewOrder,
+		optimalAssignerChns.HallOrders, optimalAssignerChns.CabOrders, optimalAssignerChns.LocallyAssignedOrders, optimalAssignerChns.NewOrder, optimalAssignerChns.CompletedOrder,
 		stateHandlerChns.AllElevStates); 
 
 	fmt.Println("Started all modules");
