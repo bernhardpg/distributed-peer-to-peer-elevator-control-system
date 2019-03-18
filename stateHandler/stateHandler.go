@@ -4,6 +4,12 @@ import ("fmt"
 	
 )
 
+type StateHandlerChannels struct {
+	LocalElevState chan ElevState
+	RemoteElevState chan ElevState
+	AllElevStates chan map[NodeID] ElevState
+}
+
 type BehaviourState int;
 const (
 	InitState BehaviourState = iota;
@@ -27,7 +33,7 @@ type ElevState struct {
 
 type NodeID int;
 
-func stateHandler(LocalElevStateChan <-chan ElevState, RemoteElevStateChan <-chan ElevState, 
+func StateHandler(LocalElevStateChan <-chan ElevState, RemoteElevStateChan <-chan ElevState, 
 	AllElevStatesChan chan<- map[NodeID]ElevState) {
 
 	//do something fun

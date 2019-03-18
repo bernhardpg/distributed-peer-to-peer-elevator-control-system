@@ -15,7 +15,6 @@ type OptimalAssignerChannels struct {
 	HallOrders chan [][] bool
 	CabOrders chan [] bool
 	ElevState chan stateHandler.ElevState
-	AllElevStates chan map[stateHandler.NodeID]stateHandler.ElevState
 }
 
 type singleElevStateJson struct {

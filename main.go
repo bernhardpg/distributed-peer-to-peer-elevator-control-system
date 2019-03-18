@@ -25,12 +25,11 @@ func main() {
 		HallOrders: make(chan [][] bool),
 		CabOrders: make(chan [] bool),
 		ElevState: make(chan stateHandler.ElevState),
-		AllElevStates: make(chan map[stateHandler.NodeID]stateHandler.ElevState),
 	}
 	stateHandlerChns := stateHandler.StateHandlerChannels {
-		LocalElevStateChan: make(chan stateHandler.ElevState),
-		RemoteElevStateChan: make(chan stateHandler.Elevstate),
-		AllElevStatesChan: make(chan map[stateHandler.NodeID] statehandler.Elevstate),
+		LocalElevState: make(chan stateHandler.ElevState),
+		RemoteElevState: make(chan stateHandler.ElevState),
+		AllElevStates: make(chan map[stateHandler.NodeID] stateHandler.ElevState),
 	}
 
 
@@ -42,9 +41,9 @@ func main() {
 	go iolights.LightHandler(numFloors, iolightsChns.TurnOffLights, iolightsChns.TurnOnLights, iolightsChns.FloorIndicator);
 
 	fmt.Println("Started all modules");
-	go stateHandler.stateHandler(stateHandlerChns.LocalElevStateChan, stateHandlerChns.RemoteElevStateChan, stateHandlerChns.AllElevStatesChan)
+	go stateHandler.StateHandler(stateHandlerChns.LocalElevState, stateHandlerChns.RemoteElevState, stateHandlerChns.AllElevStates)
 	go optimalAssigner.Assigner(numFloors,
-		optimalAssignerChns.HallOrders, optimalAssignerChns.CabOrders, optimalAssignerChns.ElevState, optimalAssignerChns.AllElevStates);
+		optimalAssignerChns.HallOrders, optimalAssignerChns.CabOrders, optimalAssignerChns.ElevState, stateHandlerChns.AllElevStates);
 
 	for {};
 }
