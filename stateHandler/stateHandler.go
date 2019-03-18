@@ -2,7 +2,6 @@ package stateHandler
 
 import ("fmt"
 	
-
 )
 
 type BehaviourState int;
@@ -20,14 +19,16 @@ const (
 )
 
 type ElevState struct {
+	ID NodeID
 	State BehaviourState
 	Floor int
 	Dir   OrderDir
 }
 
-type nodeID int;
+type NodeID int;
 
-func stateHandler(LocalElevStateChan <-chan ElevState, RemoteElevStatesChan <-chan []ElevState) {
+func stateHandler(LocalElevStateChan <-chan ElevState, RemoteElevStateChan <-chan ElevState, 
+	AllElevStatesChan chan<- map[NodeID]ElevState) {
 
 	//do something fun
 
@@ -35,25 +36,29 @@ func stateHandler(LocalElevStateChan <-chan ElevState, RemoteElevStatesChan <-ch
 	//declare local state
 
 	//Make in main?
-	var localID nodeID = 1
+	var localID NodeID = 1
 
-
-	LocalStateToNetwork := make(chan ElevState)
+//	LocalStateToNetwork := make(chan ElevState)
 	//AllStatesToAssigner := make(chan []ElevState)
 
-	//var localState ElevState
 
-	var allStates = make(map[nodeID]ElevState)
+	//var localState ElevState
+	var allElevStates = make(map[NodeID]ElevState)
+
 
 	for {
 		select {
 
-		case localState := <-LocalElevStateChan:
-			allStates[localID] = localState
-			LocalStateToNetwork <- localState
+		case a := <-LocalElevStateChan:
+			allElevStates[localID] = a
+//			LocalStateToNetwork <- allElevStates[localID]
+			AllElevStatesChan <- allElevStates
 
-		case a := <-RemoteElevStatesChan:
-			//update remote states (in StateHandler)
+		case a := <-RemoteElevStateChan:
+			allElevStates[a.ID] = a
+			AllElevStatesChan <- allElevStates
+
+
 			fmt.Println(a)
 		}
 

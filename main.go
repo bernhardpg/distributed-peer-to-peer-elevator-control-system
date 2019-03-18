@@ -25,7 +25,10 @@ func main() {
 		HallOrders: make(chan [][] bool),
 		CabOrders: make(chan [] bool),
 		ElevState: make(chan stateHandler.ElevState),
+		AllElevStates: make(chan map[stateHandler.NodeID]stateHandler.ElevState),
 	}
+
+
 
 	elevio.Init("localhost:15657", numFloors);
 
@@ -37,7 +40,7 @@ func main() {
 	fmt.Println("Started all modules");
 
 	go optimalAssigner.Assigner(numFloors,
-		optimalAssignerChns.HallOrders, optimalAssignerChns.CabOrders, optimalAssignerChns.ElevState);
+		optimalAssignerChns.HallOrders, optimalAssignerChns.CabOrders, optimalAssignerChns.ElevState, optimalAssignerChns.AllElevStates);
 
 	for {};
 }

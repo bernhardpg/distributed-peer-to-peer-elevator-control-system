@@ -15,6 +15,7 @@ type OptimalAssignerChannels struct {
 	HallOrders chan [][] bool
 	CabOrders chan [] bool
 	ElevState chan stateHandler.ElevState
+	AllElevStates chan map[stateHandler.NodeID]stateHandler.ElevState
 }
 
 type singleElevStateJson struct {
@@ -62,7 +63,7 @@ func encodeJson(currHallOrders [][]bool,
 
 // TODO export comment
 func Assigner(numFloors int, HallOrdersChan <-chan [][] bool, CabOrdersChan <-chan [] bool,
-	ElevStateChan <-chan stateHandler.ElevState) {
+	ElevStateChan <-chan stateHandler.ElevState, AllElevStatesChan <-chan map[stateHandler.NodeID] stateHandler.ElevState) {
 	// TODO change package time
 	encodePeriod := 500 * time.Millisecond;
 	encodeTimer := time.NewTimer(encodePeriod);
@@ -83,6 +84,8 @@ func Assigner(numFloors int, HallOrdersChan <-chan [][] bool, CabOrdersChan <-ch
 				currCabOrders = a;
 			case a := <- ElevStateChan:
 				currElevState = a;
+			case a := <- AllElevStatesChan:
+				fmt.Println(a)
 			case <- encodeTimer.C:
 				// TODO remove timer
 				currOptDataJson = encodeJson(currHallOrders, currCabOrders, currElevState);
