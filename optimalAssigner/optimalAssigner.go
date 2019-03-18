@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"time"
 	"encoding/json"
 	"../stateHandler"
 )
@@ -14,7 +13,6 @@ import (
 type OptimalAssignerChannels struct {
 	HallOrders chan [][] bool
 	CabOrders chan [] bool
-	ElevState chan stateHandler.ElevState
 }
 
 type singleElevStateJson struct {
@@ -24,7 +22,7 @@ type singleElevStateJson struct {
 	CabRequests []bool 	`json:"cabRequests"`
 }
 
-type optimizationDataJson struct {
+type optimizationInputJson struct {
 	// Following format req to use HallRequestAssigner (written in D)
 	HallRequests [][]bool 					`json:"hallRequests"`
 	States map[string] singleElevStateJson 	`json:"states"`
@@ -52,58 +50,53 @@ func encodeJson(currHallOrders [][]bool,
 		}
 	}
 
-	currOptData := optimizationDataJson {
+	currOptimizationInput := optimizationInputJson {
 		HallRequests: currHallOrders,
 		States: currStates,
 	}
 
-	currOptDataJson,_ := json.Marshal(currOptData);
-	return currOptDataJson;
+	currOptimizationInputJson,_ := json.Marshal(currOptimizationInput);
+	return currOptimizationInputJson;
 }
 
 // TODO export comment
 func Assigner(numFloors int, HallOrdersChan <-chan [][] bool, CabOrdersChan <-chan [] bool,
-	ElevStateChan <-chan stateHandler.ElevState, AllElevStatesChan <-chan map[stateHandler.NodeID] stateHandler.ElevState) {
-	// TODO change package time
-	encodePeriod := 500 * time.Millisecond;
-	encodeTimer := time.NewTimer(encodePeriod);
-
+	AllElevStatesChan <-chan map[stateHandler.NodeID] stateHandler.ElevState) {
 
 	currHallOrders := make([][] bool, numFloors); 
 	currCabOrders := make([] bool, numFloors);
 
 	var currAllElevStates map[stateHandler.NodeID] stateHandler.ElevState;
-
-	var currOptDataJson []byte;
+	var currOptimizationInputJson []byte;
 	var optimalAssignedOrders map[string]interface{};
+	calcOptimalFlag := false;
 
 	for {
 		select {
 			case a := <- HallOrdersChan:
 				currHallOrders = a;
+				calcOptimalFlag = true;
 			case a := <- CabOrdersChan:
 				currCabOrders = a;
-			case a := <- ElevStateChan:
-				fmt.Println(a);
-				//TODO REMOVE THIS
+				calcOptimalFlag = true;
 			case a := <- AllElevStatesChan:
 				currAllElevStates = a;
-			case <- encodeTimer.C:
-				// TODO remove timer
-				currOptDataJson = encodeJson(currHallOrders, currCabOrders, currAllElevStates);
-				outJson := runOptimizer(currOptDataJson);
-				fmt.Println(string(outJson));
-				json.Unmarshal(outJson, &optimalAssignedOrders);
+				calcOptimalFlag = true;
+		}
 
-				// Optimally assigned orders!
+		// TODO is this good style?
+		if calcOptimalFlag {	
+			currOptimizationInputJson = encodeJson(currHallOrders, currCabOrders, currAllElevStates);
+			outJson := runOptimizer(currOptimizationInputJson);
+			fmt.Println(string(outJson));
+			json.Unmarshal(outJson, &optimalAssignedOrders);
 
-				//fmt.Println(optimalAssignedOrders);
-				encodeTimer.Reset(encodePeriod);
+			calcOptimalFlag = false;
 		}
 	}
 }
 
-func runOptimizer(currOptDataJson []byte) ([]byte){
+func runOptimizer(currOptimizationInputJson []byte) ([]byte){
 	// Get current working directory
 	dir, err := os.Getwd();
 
@@ -111,9 +104,9 @@ func runOptimizer(currOptDataJson []byte) ([]byte){
 		log.Fatal(err);
 	}
 
-	// Run external script
+	// Run external script with json data
 	cmd := exec.Command("sh", "-c",
-		dir + "/optimalAssigner/hall_request_assigner --input '" + string(currOptDataJson) + "'");
+		dir + "/optimalAssigner/hall_request_assigner --input '" + string(currOptimizationInputJson) + "'");
 	
 	outJson, err := cmd.Output();
 

@@ -24,7 +24,6 @@ func main() {
 	optimalAssignerChns := optimalAssigner.OptimalAssignerChannels {
 		HallOrders: make(chan [][] bool),
 		CabOrders: make(chan [] bool),
-		ElevState: make(chan stateHandler.ElevState),
 	}
 	stateHandlerChns := stateHandler.StateHandlerChannels {
 		LocalElevState: make(chan stateHandler.ElevState),
@@ -37,11 +36,11 @@ func main() {
 
 	go elevio.IOReader(numFloors, fsmChns.NewOrder, fsmChns.ArrivedAtFloor, iolightsChns.FloorIndicator);
 	go fsm.StateMachine(numFloors, fsmChns.NewOrder, fsmChns.ArrivedAtFloor, iolightsChns.TurnOffLights, iolightsChns.TurnOnLights,
-		optimalAssignerChns.HallOrders, optimalAssignerChns.CabOrders, optimalAssignerChns.ElevState, stateHandlerChns.LocalElevState);
+		optimalAssignerChns.HallOrders, optimalAssignerChns.CabOrders, stateHandlerChns.LocalElevState);
 	go iolights.LightHandler(numFloors, iolightsChns.TurnOffLights, iolightsChns.TurnOnLights, iolightsChns.FloorIndicator);
 	go stateHandler.StateHandler(stateHandlerChns.LocalElevState, stateHandlerChns.RemoteElevState, stateHandlerChns.AllElevStates)
 	go optimalAssigner.Assigner(numFloors,
-		optimalAssignerChns.HallOrders, optimalAssignerChns.CabOrders, optimalAssignerChns.ElevState, stateHandlerChns.AllElevStates);
+		optimalAssignerChns.HallOrders, optimalAssignerChns.CabOrders, stateHandlerChns.AllElevStates);
 
 	fmt.Println("Started all modules");
 
