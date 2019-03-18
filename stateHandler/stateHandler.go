@@ -31,28 +31,17 @@ type ElevState struct {
 	Dir   OrderDir
 }
 
+// TODO move to network module!
 type NodeID int;
 
-func StateHandler(LocalElevStateChan <-chan ElevState, RemoteElevStateChan <-chan ElevState, 
+func StateHandler(localID NodeID, LocalElevStateChan <-chan ElevState, RemoteElevStateChan <-chan ElevState, 
 	AllElevStatesChan chan<- map[NodeID]ElevState) {
 
-	//do something fun
-
-	//Declare all states list
-	//declare local state
-
-	//Make in main?
-	var localID NodeID = 1
-
 //	LocalStateToNetwork := make(chan ElevState)
-	//AllStatesToAssigner := make(chan []ElevState)
 
-	//var localState ElevState
 	var allElevStates = make(map[NodeID]ElevState)
 
 	// TODO remove lost peers from allStates
-
-
 
 	for {
 		select {

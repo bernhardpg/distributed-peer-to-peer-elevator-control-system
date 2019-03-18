@@ -124,7 +124,7 @@ func setOrder(buttonPress elevio.ButtonEvent, assignedOrders [][]bool, TurnOnLig
 	TurnOnLights <- buttonPress;
 }
 
-func transitionTo(nextState stateHandler.BehaviourState, currFloor int, currDir stateHandler.OrderDir, assignedOrders [][] bool,
+func transitionTo(localID stateHandler.NodeID, nextState stateHandler.BehaviourState, currFloor int, currDir stateHandler.OrderDir, assignedOrders [][] bool,
 	doorTimer *time.Timer, LocalElevStateChan chan<- stateHandler.ElevState) (stateHandler.BehaviourState, int, stateHandler.OrderDir) {
 	state := nextState;
 	currOrder := 0;
@@ -150,7 +150,7 @@ func transitionTo(nextState stateHandler.BehaviourState, currFloor int, currDir 
 			}
 	}
 	// Transmit state each time state is changed
-	transmitState(state, currFloor, currDir, LocalElevStateChan);
+	transmitState(localID, state, currFloor, currDir, LocalElevStateChan);
 
 
 	return state, currOrder, nextDir;
@@ -158,7 +158,7 @@ func transitionTo(nextState stateHandler.BehaviourState, currFloor int, currDir 
 
 // StateHandler ...
 // GoRoutine for handling the states of a single elevator
-func StateMachine(numFloors int, NewOrder <-chan elevio.ButtonEvent, ArrivedAtFloor <-chan int, TurnOffLights chan<- elevio.ButtonEvent, TurnOnLights chan<- elevio.ButtonEvent,
+func StateMachine(localID stateHandler.NodeID, numFloors int, NewOrder <-chan elevio.ButtonEvent, ArrivedAtFloor <-chan int, TurnOffLights chan<- elevio.ButtonEvent, TurnOnLights chan<- elevio.ButtonEvent,
 	HallOrderChan chan<- [][] bool, CabOrderChan chan<- [] bool, LocalElevStateChan chan<- stateHandler.ElevState) {
 	// Initialize variables	
 	// -----
@@ -198,9 +198,9 @@ func StateMachine(numFloors int, NewOrder <-chan elevio.ButtonEvent, ArrivedAtFl
 			if state != stateHandler.InitState {
 				elevio.SetDoorOpenLamp(false);
 				if hasOrders(assignedOrders) {
-					state, currOrder, currDir = transitionTo(stateHandler.Moving, currFloor, currDir, assignedOrders, doorTimer, LocalElevStateChan);
+					state, currOrder, currDir = transitionTo(localID, stateHandler.Moving, currFloor, currDir, assignedOrders, doorTimer, LocalElevStateChan);
 				} else {
-					state,_,_ = transitionTo(stateHandler.Idle, currFloor, currDir, assignedOrders, doorTimer, LocalElevStateChan);
+					state,_,_ = transitionTo(localID, stateHandler.Idle, currFloor, currDir, assignedOrders, doorTimer, LocalElevStateChan);
 				}
 			}
 
@@ -208,17 +208,17 @@ func StateMachine(numFloors int, NewOrder <-chan elevio.ButtonEvent, ArrivedAtFl
 			currFloor = a;
 
 			// Transmit state each when reached new floor
-			transmitState(state, currFloor, currDir, LocalElevStateChan);
+			transmitState(localID, state, currFloor, currDir, LocalElevStateChan);
 
 			if state == stateHandler.InitState {
-				state,_,_ = transitionTo(stateHandler.Idle, currFloor, currDir, assignedOrders, doorTimer, LocalElevStateChan);
+				state,_,_ = transitionTo(localID, stateHandler.Idle, currFloor, currDir, assignedOrders, doorTimer, LocalElevStateChan);
 			}
 
 			if currFloor == currOrder {
 				clearOrdersAtFloor(currFloor, assignedOrders, TurnOffLights);
 				transmitHallOrders(assignedOrders, HallOrderChan);
 				transmitCabOrders(assignedOrders, CabOrderChan);
-				state,_,_ = transitionTo(stateHandler.DoorOpen, currFloor, currDir, assignedOrders, doorTimer, LocalElevStateChan);
+				state,_,_ = transitionTo(localID, stateHandler.DoorOpen, currFloor, currDir, assignedOrders, doorTimer, LocalElevStateChan);
 			}
 
 		case a := <- NewOrder:
@@ -227,14 +227,14 @@ func StateMachine(numFloors int, NewOrder <-chan elevio.ButtonEvent, ArrivedAtFl
 			// Only open door if already on floor (and not stateHandler.Moving)
 			if a.Floor == currFloor && state != stateHandler.Moving {
 				// Open door without calculating new order
-				state,_,_ = transitionTo(stateHandler.DoorOpen, currFloor, currDir, assignedOrders, doorTimer, LocalElevStateChan);
+				state,_,_ = transitionTo(localID, stateHandler.DoorOpen, currFloor, currDir, assignedOrders, doorTimer, LocalElevStateChan);
 			} else {
 				setOrder(a, assignedOrders, TurnOnLights);
 				transmitHallOrders(assignedOrders, HallOrderChan);
 				transmitCabOrders(assignedOrders, CabOrderChan);
 				if state != stateHandler.DoorOpen {
 					// Calculate new order
-					state, currOrder, currDir = transitionTo(stateHandler.Moving, currFloor, currDir, assignedOrders, doorTimer, LocalElevStateChan);
+					state, currOrder, currDir = transitionTo(localID, stateHandler.Moving, currFloor, currDir, assignedOrders, doorTimer, LocalElevStateChan);
 				}
 			}
 		}
@@ -242,8 +242,9 @@ func StateMachine(numFloors int, NewOrder <-chan elevio.ButtonEvent, ArrivedAtFl
 }
 
 
-func transmitState(currState stateHandler.BehaviourState, currFloor int, currDir stateHandler.OrderDir, LocalElevStateChan chan<- stateHandler.ElevState) {
+func transmitState(localID stateHandler.NodeID, currState stateHandler.BehaviourState, currFloor int, currDir stateHandler.OrderDir, LocalElevStateChan chan<- stateHandler.ElevState) {
 	currElevState := stateHandler.ElevState {
+		ID: localID,
 		State: currState,
 		Floor: currFloor,
 		Dir: currDir, 

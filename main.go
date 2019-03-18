@@ -9,7 +9,9 @@ import (
 	"fmt"
 )
 
+
 func main() {
+	var localID stateHandler.NodeID = 1;
 	numFloors := 4;
 
 	fsmChns := fsm.StateMachineChannels {
@@ -34,13 +36,26 @@ func main() {
 
 	elevio.Init("localhost:15657", numFloors);
 
-	go elevio.IOReader(numFloors, fsmChns.NewOrder, fsmChns.ArrivedAtFloor, iolightsChns.FloorIndicator);
-	go fsm.StateMachine(numFloors, fsmChns.NewOrder, fsmChns.ArrivedAtFloor, iolightsChns.TurnOffLights, iolightsChns.TurnOnLights,
+	// Start modules
+	// -----
+	go elevio.IOReader(numFloors,
+		fsmChns.NewOrder, fsmChns.ArrivedAtFloor,
+		iolightsChns.FloorIndicator);
+
+	go fsm.StateMachine(localID, numFloors,
+		fsmChns.NewOrder, fsmChns.ArrivedAtFloor,
+		iolightsChns.TurnOffLights, iolightsChns.TurnOnLights,
 		optimalAssignerChns.HallOrders, optimalAssignerChns.CabOrders, stateHandlerChns.LocalElevState);
-	go iolights.LightHandler(numFloors, iolightsChns.TurnOffLights, iolightsChns.TurnOnLights, iolightsChns.FloorIndicator);
-	go stateHandler.StateHandler(stateHandlerChns.LocalElevState, stateHandlerChns.RemoteElevState, stateHandlerChns.AllElevStates)
+
+	go iolights.LightHandler(numFloors,
+		iolightsChns.TurnOffLights, iolightsChns.TurnOnLights, iolightsChns.FloorIndicator);
+
+	go stateHandler.StateHandler(localID,
+		stateHandlerChns.LocalElevState, stateHandlerChns.RemoteElevState, stateHandlerChns.AllElevStates)
+
 	go optimalAssigner.Assigner(numFloors,
-		optimalAssignerChns.HallOrders, optimalAssignerChns.CabOrders, stateHandlerChns.AllElevStates);
+		optimalAssignerChns.HallOrders, optimalAssignerChns.CabOrders,
+		stateHandlerChns.AllElevStates);
 
 	fmt.Println("Started all modules");
 
