@@ -130,6 +130,7 @@ func StateMachine(localID stateHandler.NodeID, numFloors int, NewOrder <-chan el
 	HallOrderChan chan<- [][] bool, CabOrderChan chan<- [] bool, LocalElevStateChan chan<- stateHandler.ElevState) {
 	// Initialize variables	
 	// -----
+	doorOpenTime := 3 * time.Second;
 	currOrder := -1;
 	currFloor := -1;
 	var currDir stateHandler.OrderDir = stateHandler.Up;
@@ -218,7 +219,7 @@ func StateMachine(localID stateHandler.NodeID, numFloors int, NewOrder <-chan el
 				case stateHandler.DoorOpen:
 					elevio.SetMotorDirection(elevio.MD_Stop)
 					elevio.SetDoorOpenLamp(true)
-					doorTimer.Reset(3 * time.Second)
+					doorTimer.Reset(doorOpenTime)
 
 				case stateHandler.Idle:
 					elevio.SetMotorDirection(elevio.MD_Stop)

@@ -2,17 +2,19 @@ package optimalAssigner
 
 import (
 	"os/exec"
-	"fmt"
 	"log"
 	"os"
 	"encoding/json"
 	"../stateHandler"
+	"../elevio"
+	"fmt"
 )
-
 
 type OptimalAssignerChannels struct {
 	HallOrders chan [][] bool
 	CabOrders chan [] bool
+	NewOrder chan elevio.ButtonEvent // TODO move to consensus module
+	LocallyAssignedOrders chan [][] bool
 }
 
 type singleElevStateJson struct {
@@ -28,10 +30,10 @@ type optimizationInputJson struct {
 	States map[string] singleElevStateJson 	`json:"states"`
 }
 
+// Encodes the data for HallRequstAssigner script, according to
+// Format required
 func encodeJson(currHallOrders [][]bool,
-	// Encodes the data for HallRequstAssigner script, according to
-	// Format required
-	currCabOrders []bool, currAllElevStates map[stateHandler.NodeID] stateHandler.ElevState) ([]byte) {
+	currCabOrders []bool, currAllElevStates map[stateHandler.NodeID] stateHandler.ElevState)([]byte) {
 
 	currStates := make(map[string] singleElevStateJson);
 
@@ -59,9 +61,49 @@ func encodeJson(currHallOrders [][]bool,
 	return currOptimizationInputJson;
 }
 
-// TODO export comment
-func Assigner(numFloors int, HallOrdersChan <-chan [][] bool, CabOrdersChan <-chan [] bool,
-	AllElevStatesChan <-chan map[stateHandler.NodeID] stateHandler.ElevState) {
+func runOptimizer(currOptimizationInputJson []byte) ([]byte){
+	// Get current working directory
+	dir, err := os.Getwd();
+
+	if err != nil {
+		log.Fatal(err);
+	}
+
+	scriptName := "/optimalAssigner/hall_request_assigner"
+	params := "--includeCab --clearRequestType all"
+	input := " --input '" + string(currOptimizationInputJson) + "'"
+
+	// Run external script with json data
+	cmd := exec.Command("sh", "-c",
+		dir + scriptName + " " + params + " " + input);
+	
+	outJson, err := cmd.Output();
+
+	if err != nil {
+		log.Fatal(err);
+	}
+
+	return outJson;
+}
+
+func setOrder(buttonPress elevio.ButtonEvent, hallOrders [][]bool, cabOrders []bool) {
+	fmt.Println("Setting order in local order matrix!")
+	if buttonPress.Button == elevio.BT_Cab {
+		cabOrders[buttonPress.Floor] = true
+	} else {
+		hallOrders[buttonPress.Floor][buttonPress.Button] = true;
+	}
+
+	// TODO set lights
+	// TODO send orders to fsm!
+}
+
+func Assigner(numFloors int,
+	HallOrdersChan <-chan [][] bool,
+	CabOrdersChan <-chan [] bool,
+	LocallyAssignedOrders chan<- [][]bool,
+	NewOrderChan <-chan elevio.ButtonEvent,
+	AllElevStatesChan <-chan map[stateHandler.NodeID] stateHandler.ElevState) { 
 
 	currHallOrders := make([][] bool, numFloors); 
 	currCabOrders := make([] bool, numFloors);
@@ -82,37 +124,19 @@ func Assigner(numFloors int, HallOrdersChan <-chan [][] bool, CabOrdersChan <-ch
 			case a := <- AllElevStatesChan:
 				currAllElevStates = a;
 				calcOptimalFlag = true;
+			case a := <- NewOrderChan:
+				setOrder(a, currHallOrders, currCabOrders);
+				calcOptimalFlag = true;
 		}
 
-		// TODO is this good style?
 		if calcOptimalFlag {	
 			currOptimizationInputJson = encodeJson(currHallOrders, currCabOrders, currAllElevStates);
 			outJson := runOptimizer(currOptimizationInputJson);
-			fmt.Println(string(outJson));
 			json.Unmarshal(outJson, &optimalAssignedOrders);
-
 			calcOptimalFlag = false;
+			fmt.Println(string(outJson));
+
+			// Give to FSM
 		}
 	}
-}
-
-func runOptimizer(currOptimizationInputJson []byte) ([]byte){
-	// Get current working directory
-	dir, err := os.Getwd();
-
-	if err != nil {
-		log.Fatal(err);
-	}
-
-	// Run external script with json data
-	cmd := exec.Command("sh", "-c",
-		dir + "/optimalAssigner/hall_request_assigner --input '" + string(currOptimizationInputJson) + "'");
-	
-	outJson, err := cmd.Output();
-
-	if err != nil {
-		log.Fatal(err);
-	}
-
-	return outJson;
 }
