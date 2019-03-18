@@ -46,7 +46,8 @@ func main() {
 	go fsm.StateMachine(localID, numFloors,
 		optimalAssignerChns.NewOrder, fsmChns.ArrivedAtFloor,
 		iolightsChns.TurnOffLights, iolightsChns.TurnOnLights,
-		optimalAssignerChns.HallOrders, optimalAssignerChns.CabOrders, stateHandlerChns.LocalElevState);
+		optimalAssignerChns.HallOrders, optimalAssignerChns.CabOrders, optimalAssignerChns.LocallyAssignedOrders,
+		stateHandlerChns.LocalElevState);
 
 	go iolights.LightHandler(numFloors,
 		iolightsChns.TurnOffLights, iolightsChns.TurnOnLights, iolightsChns.FloorIndicator);
@@ -54,7 +55,7 @@ func main() {
 	go stateHandler.StateHandler(localID,
 		stateHandlerChns.LocalElevState, stateHandlerChns.RemoteElevState, stateHandlerChns.AllElevStates)
 
-	go optimalAssigner.Assigner(numFloors,
+	go optimalAssigner.Assigner(localID, numFloors,
 		optimalAssignerChns.HallOrders, optimalAssignerChns.CabOrders, optimalAssignerChns.LocallyAssignedOrders, optimalAssignerChns.NewOrder,
 		stateHandlerChns.AllElevStates); 
 

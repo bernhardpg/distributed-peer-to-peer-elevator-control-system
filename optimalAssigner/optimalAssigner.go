@@ -8,6 +8,7 @@ import (
 	"../stateHandler"
 	"../elevio"
 	"fmt"
+	//"reflect"
 )
 
 type OptimalAssignerChannels struct {
@@ -98,32 +99,52 @@ func setOrder(buttonPress elevio.ButtonEvent, hallOrders [][]bool, cabOrders []b
 	// TODO send orders to fsm!
 }
 
-func Assigner(numFloors int,
+func Assigner(localID stateHandler.NodeID, numFloors int,
 	HallOrdersChan <-chan [][] bool,
 	CabOrdersChan <-chan [] bool,
-	LocallyAssignedOrders chan<- [][]bool,
+	LocallyAssignedOrdersChan chan<- [][]bool,
 	NewOrderChan <-chan elevio.ButtonEvent,
 	AllElevStatesChan <-chan map[stateHandler.NodeID] stateHandler.ElevState) { 
 
+
+	// Initialize empty matrices
+	//-------
 	currHallOrders := make([][] bool, numFloors); 
 	currCabOrders := make([] bool, numFloors);
 
-	var currAllElevStates map[stateHandler.NodeID] stateHandler.ElevState;
+	for floor := range currHallOrders {
+		currHallOrders[floor] = make([] bool, 2)
+	}
+
+	for floor := range currHallOrders {
+		for orderType := range currHallOrders[floor] {
+			currHallOrders[floor][orderType] = false
+		}
+		currCabOrders[floor] = false
+	}
+
+	currAllElevStates := make(map[stateHandler.NodeID] stateHandler.ElevState);
 	var currOptimizationInputJson []byte;
-	var optimalAssignedOrders map[string]interface{};
+	var optimalAssignedOrders map[string] [][]bool;
 	calcOptimalFlag := false;
 
 	for {
 		select {
-			case a := <- HallOrdersChan:
+			/*case a := <- HallOrdersChan:
 				currHallOrders = a;
 				calcOptimalFlag = true;
 			case a := <- CabOrdersChan:
 				currCabOrders = a;
-				calcOptimalFlag = true;
+				calcOptimalFlag = true;*/
+
 			case a := <- AllElevStatesChan:
+				fmt.Println("Updating state!:")
+				fmt.Println(currAllElevStates)
+				fmt.Println(a)
+
 				currAllElevStates = a;
 				calcOptimalFlag = true;
+
 			case a := <- NewOrderChan:
 				setOrder(a, currHallOrders, currCabOrders);
 				calcOptimalFlag = true;
@@ -133,10 +154,12 @@ func Assigner(numFloors int,
 			currOptimizationInputJson = encodeJson(currHallOrders, currCabOrders, currAllElevStates);
 			outJson := runOptimizer(currOptimizationInputJson);
 			json.Unmarshal(outJson, &optimalAssignedOrders);
-			calcOptimalFlag = false;
-			fmt.Println(string(outJson));
+			fmt.Println(optimalAssignedOrders[string(localID)]);
 
-			// Give to FSM
+			LocallyAssignedOrdersChan <- optimalAssignedOrders[string(localID)]
+			calcOptimalFlag = false;
+
+			// TODO why does it send two times?
 		}
 	}
 }
