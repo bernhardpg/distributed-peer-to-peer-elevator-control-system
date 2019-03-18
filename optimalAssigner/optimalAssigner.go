@@ -33,22 +33,23 @@ type optimizationDataJson struct {
 func encodeJson(currHallOrders [][]bool,
 	// Encodes the data for HallRequstAssigner script, according to
 	// Format required
-	currCabOrders []bool, currElevState stateHandler.ElevState) ([]byte) {
+	currCabOrders []bool, currAllElevStates map[stateHandler.NodeID] stateHandler.ElevState) ([]byte) {
 
 	currStates := make(map[string] singleElevStateJson);
 
-	// TODO these need to not be hardcoded!
-	currBehaviour := "idle";
-	currDirection := "up";
+	for currID, currElevState := range currAllElevStates {
+		// TODO these need to not be hardcoded!
+		currBehaviour := "idle";
+		currDirection := "up";
 
-	//switch ElevState.dir
+		//switch ElevState.dir
 
-	// TODO will need to iterate through all elements
-	currStates["id_curr"] = singleElevStateJson {
-		Behaviour: currBehaviour,
-		Floor: currElevState.Floor,
-		Direction: currDirection,
-		CabRequests: currCabOrders,
+		currStates[string(currID)] = singleElevStateJson {
+			Behaviour: currBehaviour,
+			Floor: currElevState.Floor,
+			Direction: currDirection,
+			CabRequests: currCabOrders,
+		}
 	}
 
 	currOptData := optimizationDataJson {
@@ -67,10 +68,11 @@ func Assigner(numFloors int, HallOrdersChan <-chan [][] bool, CabOrdersChan <-ch
 	encodePeriod := 500 * time.Millisecond;
 	encodeTimer := time.NewTimer(encodePeriod);
 
+
 	currHallOrders := make([][] bool, numFloors); 
 	currCabOrders := make([] bool, numFloors);
 
-	currElevState := stateHandler.ElevState {}
+	var currAllElevStates map[stateHandler.NodeID] stateHandler.ElevState;
 
 	var currOptDataJson []byte;
 	var optimalAssignedOrders map[string]interface{};
@@ -82,18 +84,21 @@ func Assigner(numFloors int, HallOrdersChan <-chan [][] bool, CabOrdersChan <-ch
 			case a := <- CabOrdersChan:
 				currCabOrders = a;
 			case a := <- ElevStateChan:
-				currElevState = a;
+				fmt.Println(a);
+				//TODO REMOVE THIS
 			case a := <- AllElevStatesChan:
-				fmt.Println(a)
+				currAllElevStates = a;
 			case <- encodeTimer.C:
 				// TODO remove timer
-				currOptDataJson = encodeJson(currHallOrders, currCabOrders, currElevState);
+				currOptDataJson = encodeJson(currHallOrders, currCabOrders, currAllElevStates);
 				outJson := runOptimizer(currOptDataJson);
+				fmt.Println(string(outJson));
 				json.Unmarshal(outJson, &optimalAssignedOrders);
 
 				// Optimally assigned orders!
 
-				fmt.Println(optimalAssignedOrders);
+				//fmt.Println(optimalAssignedOrders);
+				encodeTimer.Reset(encodePeriod);
 		}
 	}
 }

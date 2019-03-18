@@ -50,6 +50,9 @@ func StateHandler(LocalElevStateChan <-chan ElevState, RemoteElevStateChan <-cha
 	//var localState ElevState
 	var allElevStates = make(map[NodeID]ElevState)
 
+	// TODO remove lost peers from allStates
+
+
 
 	for {
 		select {
@@ -62,7 +65,6 @@ func StateHandler(LocalElevStateChan <-chan ElevState, RemoteElevStateChan <-cha
 		case a := <-RemoteElevStateChan:
 			allElevStates[a.ID] = a
 			AllElevStatesChan <- allElevStates
-
 
 			fmt.Println(a)
 		}
