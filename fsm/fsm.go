@@ -3,6 +3,7 @@ package fsm
 import (
 	"../elevio"
 	"time"
+	"fmt"
 )
 
 // StateMachineChannels ...
@@ -168,7 +169,7 @@ func transitionTo(nextState elevState, currFloor int, currDir orderDir, assigned
 				elevio.SetMotorDirection(elevio.MD_Down);
 			}
 	}
-
+	// Transmit state each time state is changed
 	transmitState(state, currFloor, currDir, ElevStateChan);
 
 
@@ -221,6 +222,8 @@ func StateHandler(numFloors int, NewOrder <-chan elevio.ButtonEvent, ArrivedAtFl
 
 		case a := <- ArrivedAtFloor:
 			currFloor = a;
+
+			// Transmit state each when reached new floor
 			transmitState(state, currFloor, currDir, ElevStateChan);
 
 			if state == initState {

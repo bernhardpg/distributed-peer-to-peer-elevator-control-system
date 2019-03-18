@@ -53,6 +53,10 @@ func Assigner(HallOrdersChan <-chan [][] bool, CabOrdersChan <-chan [] bool, Ele
 		select {
 			case a := <- HallOrdersChan:
 				fmt.Println(a);
+			case a := <- CabOrdersChan:
+				fmt.Println(a);
+			case a := <- ElevStateChan:
+				fmt.Println(a);
 		}
 	}
 }
