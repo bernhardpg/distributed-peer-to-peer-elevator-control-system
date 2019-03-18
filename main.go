@@ -5,6 +5,7 @@ import (
 	"./elevio"
 	"./iolights"
 	"./optimalAssigner"
+	"fmt"
 )
 
 func main() {
@@ -28,11 +29,14 @@ func main() {
 	elevio.Init("localhost:15657", numFloors);
 
 	go elevio.IOReader(numFloors, fsmChns.NewOrder, fsmChns.ArrivedAtFloor, iolightsChns.FloorIndicator);
-	go fsm.StateHandler(numFloors, fsmChns.NewOrder, fsmChns.ArrivedAtFloor, iolightsChns.TurnOffLights, iolightsChns.TurnOnLights,
+	go fsm.StateMachine(numFloors, fsmChns.NewOrder, fsmChns.ArrivedAtFloor, iolightsChns.TurnOffLights, iolightsChns.TurnOnLights,
 		optimalAssignerChns.HallOrdersChan, optimalAssignerChns.CabOrdersChan, optimalAssignerChns.ElevStateChan);
 	go iolights.LightHandler(numFloors, iolightsChns.TurnOffLights, iolightsChns.TurnOnLights, iolightsChns.FloorIndicator);
 
-	go optimalAssigner.Assigner(optimalAssignerChns.HallOrdersChan, optimalAssignerChns.CabOrdersChan, optimalAssignerChns.ElevStateChan);
+	fmt.Println("Started all modules");
+
+	go optimalAssigner.Assigner(numFloors,
+		optimalAssignerChns.HallOrdersChan, optimalAssignerChns.CabOrdersChan, optimalAssignerChns.ElevStateChan);
 
 	for {};
 }
