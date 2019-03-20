@@ -51,7 +51,8 @@ func main() {
 	go fsm.StateMachine(
 		localID, numFloors,
 		fsmChns.ArrivedAtFloorChan,
-		optimalOrderAssignerChns.HallOrdersChan, optimalOrderAssignerChns.CabOrdersChan, optimalOrderAssignerChns.LocallyAssignedOrdersChan, optimalOrderAssignerChns.CompletedOrderChan,
+		optimalOrderAssignerChns.HallOrdersChan, optimalOrderAssignerChns.CabOrdersChan,
+		optimalOrderAssignerChns.LocallyAssignedOrdersChan, optimalOrderAssignerChns.CompletedOrderChan,
 		nodeStatesHandlerChns.LocalNodeStateChan)
 
 	go iolights.LightHandler(
