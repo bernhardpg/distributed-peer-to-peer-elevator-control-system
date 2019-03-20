@@ -1,8 +1,7 @@
 package requestConsensus
 
 import (
-	"./consensusModule"
-	"fsm"
+	"../../fsm"
 )
 
 
