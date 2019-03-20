@@ -8,6 +8,7 @@
 - Comment all code
 - Better names for LocalNodeStateChan ?
 - Change all variable declarations from 'var' to i.e. 'localState := fsm.NodeState {}'
+- Change NodeID to string?
 
 ### DONE
 - Test spamming while initting

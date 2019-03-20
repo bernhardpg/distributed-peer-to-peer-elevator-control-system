@@ -25,7 +25,8 @@ type NodeStateMsg struct {
 func Module(
 	localID NodeID,
 	LocalNodeStateChan <-chan fsm.NodeState,
-	RemoteNodeStatesChan chan<- NodeStateMsg) {
+	RemoteNodeStatesChan chan<- NodeStateMsg,
+	NodeLost chan<- NodeID) {
 
 	// Setup channels and modules for sending and receiving NodeStateMsg
 	// -----
@@ -51,10 +52,19 @@ func Module(
 		select {
 
 		case a := <-peerUpdateChan:
+			// Print info
 			fmt.Printf("Peer update:\n")
 			fmt.Printf("  Peers:    %q\n", a.Peers)
 			fmt.Printf("  New:      %q\n", a.New)
 			fmt.Printf("  Lost:     %q\n", a.Lost)
+
+			// Inform NodeStatesHandler that a node is lost from the network
+			if len(a.Lost) != 0 {
+				for _, currIDstr := range a.Lost {
+					currID,_ := strconv.Atoi(currIDstr)
+					NodeLost <- NodeID(currID)
+				}
+			}
 
 		// Transmit local state
 		case a := <-LocalNodeStateChan:

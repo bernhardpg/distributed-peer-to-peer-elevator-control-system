@@ -58,6 +58,7 @@ func main() {
 		LocalNodeStateChan: make(chan fsm.NodeState),
 		RemoteNodeStatesChan: make(chan network.NodeStateMsg),
 		AllNodeStatesChan: make(chan map[network.NodeID] fsm.NodeState),
+		NodeLostChan: make(chan network.NodeID),
 	}
 	networkChns := network.Channels {
 		LocalNodeStateChan: make(chan fsm.NodeState),
@@ -91,6 +92,7 @@ func main() {
 		nodeStatesHandlerChns.LocalNodeStateChan,
 		nodeStatesHandlerChns.RemoteNodeStatesChan,
 		nodeStatesHandlerChns.AllNodeStatesChan,
+		nodeStatesHandlerChns.NodeLostChan,
 		networkChns.LocalNodeStateChan)
 
 	go optimalOrderAssigner.Assigner(
@@ -105,7 +107,8 @@ func main() {
 	go network.Module(
 		localID,
 		networkChns.LocalNodeStateChan,
-		nodeStatesHandlerChns.RemoteNodeStatesChan)
+		nodeStatesHandlerChns.RemoteNodeStatesChan,
+		nodeStatesHandlerChns.NodeLostChan)
 
 	fmt.Println("(main) Started all modules");
 
