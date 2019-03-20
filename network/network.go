@@ -17,19 +17,20 @@ type Channels struct {
 	LocalNodeStateChan chan fsm.NodeState
 }
 
-type localStateMsg struct {
+type NodeStateMsg struct {
 	ID NodeID
 	State fsm.NodeState
 }
 
 func Module(
 	localID NodeID,
-	LocalNodeStateChan <-chan fsm.NodeState) {
+	LocalNodeStateChan <-chan fsm.NodeState,
+	RemoteNodeStatesChan chan<- NodeStateMsg) {
 
-	// Setup channels and modules for sending and receiving localStateMsg
+	// Setup channels and modules for sending and receiving NodeStateMsg
 	// -----
-	localStateTx := make(chan localStateMsg)
-	localStateRx := make(chan localStateMsg)
+	localStateTx := make(chan NodeStateMsg)
+	localStateRx := make(chan NodeStateMsg)
 	go bcast.Transmitter(16569, localStateTx)
 	go bcast.Receiver(16569, localStateRx)
 
@@ -55,19 +56,20 @@ func Module(
 			fmt.Printf("  New:      %q\n", a.New)
 			fmt.Printf("  Lost:     %q\n", a.Lost)
 
+		// Transmit local state
 		case a := <-LocalNodeStateChan:
 			localState = a
-			localStateTx <- localStateMsg {
+			localStateTx <- NodeStateMsg {
 				ID: localID,
 				State: localState,
 			}
 
-		/*case a := <- localStateRx:
+		// Receive remote node states
+		case a := <- localStateRx:
+			// Send remoteNodeStates to nodeStatesHandler
 			if a.ID != localID {
-				fmt.Println("(network) Received from id: ", a.ID)
-				fmt.Println("   State: ", a.State)
-			}*/
-
+				RemoteNodeStatesChan <- a
+			}
 		}
 	}
 }

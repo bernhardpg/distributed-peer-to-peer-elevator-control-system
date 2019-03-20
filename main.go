@@ -56,6 +56,7 @@ func main() {
 	}
 	nodeStatesHandlerChns := nodeStatesHandler.NodeStatesHandlerChannels {
 		LocalNodeStateChan: make(chan fsm.NodeState),
+		RemoteNodeStatesChan: make(chan network.NodeStateMsg),
 		AllNodeStatesChan: make(chan map[network.NodeID] fsm.NodeState),
 	}
 	networkChns := network.Channels {
@@ -88,6 +89,7 @@ func main() {
 	go nodeStatesHandler.NodeStatesHandler(
 		localID,
 		nodeStatesHandlerChns.LocalNodeStateChan,
+		nodeStatesHandlerChns.RemoteNodeStatesChan,
 		nodeStatesHandlerChns.AllNodeStatesChan,
 		networkChns.LocalNodeStateChan)
 
@@ -102,7 +104,8 @@ func main() {
 
 	go network.Module(
 		localID,
-		networkChns.LocalNodeStateChan)
+		networkChns.LocalNodeStateChan,
+		nodeStatesHandlerChns.RemoteNodeStatesChan)
 
 	fmt.Println("(main) Started all modules");
 
