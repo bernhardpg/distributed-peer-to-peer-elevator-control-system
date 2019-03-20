@@ -14,6 +14,8 @@ func main() {
 	var localID fsm.NodeID = 1;
 	numFloors := 4;
 
+	// Init channels
+	// -----
 	fsmChns := fsm.StateMachineChannels {
 		ArrivedAtFloorChan: make(chan int),
 	}

@@ -135,12 +135,12 @@ func calculateDirection(currFloor int, currOrder int) (OrderDir) {
 	return Down;
 }
 
-func setOrder(buttonPress elevio.ButtonEvent, assignedOrders [][]bool, TurnOnLightsChanChan chan<- elevio.ButtonEvent) {
+func setOrder(buttonPress elevio.ButtonEvent, assignedOrders [][]bool, TurnOnLightsChan chan<- elevio.ButtonEvent) {
 	assignedOrders[buttonPress.Floor][buttonPress.Button] = true;
-	TurnOnLightsChanChan <- buttonPress;
+	TurnOnLightsChan <- buttonPress;
 }
 
-func transmitState(localID NodeID, currState NodeBehaviour, currFloor int, currDir OrderDir, LocalNodeStateChanChan chan<- NodeState) {
+func transmitState(localID NodeID, currState NodeBehaviour, currFloor int, currDir OrderDir, LocalNodeStateChan chan<- NodeState) {
 	currNodeState := NodeState {
 		ID: localID,
 		Behaviour: currState,
@@ -148,21 +148,21 @@ func transmitState(localID NodeID, currState NodeBehaviour, currFloor int, currD
 		Dir: currDir, 
 	}
 
-	LocalNodeStateChanChan <- currNodeState
+	LocalNodeStateChan <- currNodeState
 }
 
 // StateMachine ...
 // GoRoutine for handling the states of a single elevator
 func StateMachine(localID NodeID, numFloors int,
-	NewOrderChanChan <-chan elevio.ButtonEvent,
-	ArrivedAtFloorChanChan <-chan int,
-	TurnOffLightsChanChan chan<- elevio.ButtonEvent,
-	TurnOnLightsChanChan chan<- elevio.ButtonEvent,
+	NewOrderChan <-chan elevio.ButtonEvent,
+	ArrivedAtFloorChan <-chan int,
+	TurnOffLightsChan chan<- elevio.ButtonEvent,
+	TurnOnLightsChan chan<- elevio.ButtonEvent,
 	HallOrderChan chan<- [][] bool,
 	CabOrderChan chan<- [] bool,
-	LocallyAssignedOrdersChanChan <-chan [][] bool,
-	CompletedOrderChanChan chan<- int,
-	LocalNodeStateChanChan chan<- NodeState) {
+	LocallyAssignedOrdersChan <-chan [][] bool,
+	CompletedOrderChan chan<- int,
+	LocalNodeStateChan chan<- NodeState) {
 
 	// Initialize variables	
 	// -----
@@ -208,7 +208,7 @@ func StateMachine(localID NodeID, numFloors int,
 				}
 			}
 
-		case a := <- LocallyAssignedOrdersChanChan:
+		case a := <- LocallyAssignedOrdersChan:
 			// Break if no changes!
 			if reflect.DeepEqual(a, assignedOrders) {
 				break;
@@ -223,18 +223,18 @@ func StateMachine(localID NodeID, numFloors int,
 				updateState = true
 			}
 
-		case a := <- ArrivedAtFloorChanChan:
+		case a := <- ArrivedAtFloorChan:
 			currFloor = a;
 
 			// Transmit state each when reached new floor
-			transmitState(localID, state, currFloor, currDir, LocalNodeStateChanChan)
+			transmitState(localID, state, currFloor, currDir, LocalNodeStateChan)
 
 			if state == InitState {
 				nextState = IdleState
 			}
 
 			if currFloor == currOrder {
-				CompletedOrderChanChan <- currFloor
+				CompletedOrderChan <- currFloor
 				//transmitHallOrdersChan(assignedOrders, HallOrderChan)
 				//transmitCabOrdersChan(assignedOrders, CabOrderChan)
 				nextState = DoorOpenState
@@ -261,7 +261,7 @@ func StateMachine(localID NodeID, numFloors int,
 
 					// Already at desired floor
 					if currOrder == currFloor {
-						CompletedOrderChanChan <- currFloor
+						CompletedOrderChan <- currFloor
 						nextState = DoorOpenState
 						break
 					}
@@ -276,7 +276,7 @@ func StateMachine(localID NodeID, numFloors int,
 					}
 			}
 			// Transmit state each time state is changed
-			transmitState(localID, state, currFloor, currDir, LocalNodeStateChanChan)
+			transmitState(localID, state, currFloor, currDir, LocalNodeStateChan)
 			updateState = false
 		}
 	}

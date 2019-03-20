@@ -124,10 +124,10 @@ func clearOrdersAtFloor(floor int, hallOrders [][]bool, cabOrders []bool) {
 func Assigner(localID fsm.NodeID, numFloors int,
 	HallOrdersChanChan <-chan [][] bool,
 	CabOrdersChanChan <-chan [] bool,
-	LocallyAssignedOrdersChanChan chan<- [][]bool,
-	NewOrderChanChan <-chan elevio.ButtonEvent,
-	CompletedOrderChanChan <-chan int,
-	AllNodeStatesChanChan <-chan map[fsm.NodeID] fsm.NodeState) { 
+	LocallyAssignedOrdersChan chan<- [][]bool,
+	NewOrderChan <-chan elevio.ButtonEvent,
+	CompletedOrderChan <-chan int,
+	AllNodeStatesChan <-chan map[fsm.NodeID] fsm.NodeState) { 
 
 
 	// Initialize empty matrices
@@ -153,15 +153,15 @@ func Assigner(localID fsm.NodeID, numFloors int,
 
 	for {
 		select {
-			case a := <- AllNodeStatesChanChan:
+			case a := <- AllNodeStatesChan:
 				currAllNodeStatesChan = a
 				calcOptimalFlag = true
 
-			case a := <- NewOrderChanChan:
+			case a := <- NewOrderChan:
 				setOrder(a, currHallOrdersChan, currCabOrdersChan)
 				calcOptimalFlag = true
 
-			case a := <- CompletedOrderChanChan:
+			case a := <- CompletedOrderChan:
 				clearOrdersAtFloor(a, currHallOrdersChan, currCabOrdersChan)
 				calcOptimalFlag = true
 		}
@@ -170,7 +170,7 @@ func Assigner(localID fsm.NodeID, numFloors int,
 			currOptimizationInputJson = encodeJson(currHallOrdersChan, currCabOrdersChan, currAllNodeStatesChan);
 			outJson := runOptimizer(currOptimizationInputJson);
 			json.Unmarshal(outJson, &optimalAssignedOrders);
-			LocallyAssignedOrdersChanChan <- optimalAssignedOrders[string(localID)]
+			LocallyAssignedOrdersChan <- optimalAssignedOrders[string(localID)]
 			calcOptimalFlag = false;
 			// TODO why does it send two times?
 		}
