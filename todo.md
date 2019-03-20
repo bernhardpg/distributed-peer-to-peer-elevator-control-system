@@ -6,6 +6,8 @@
 - Make Golint happy
 - Rename all channels structs as Channels
 - Everything crashes when starting elevator outside boundaries
+- Comment all code
+- Test spamming while initting
 
 ### DONE
 - Change elevState to elevBehaviour or something

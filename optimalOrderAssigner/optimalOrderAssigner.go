@@ -6,9 +6,7 @@ import (
 	"os"
 	"encoding/json"
 	"../fsm"
-	"reflect"
 	"../elevio"
-	"fmt"
 )
 
 type OptimalOrderAssignerChannels struct {
@@ -81,9 +79,6 @@ func encodeJSON(
 	}
 
 	currOptimizationInputJSON,_ := json.Marshal(currOptimizationInput);
-
-	fmt.Println(string(currOptimizationInputJSON))
-	fmt.Println(currAllNodeStatesChan)
 
 	return currOptimizationInputJSON;
 }
@@ -188,7 +183,6 @@ func Assigner(
 	currAllNodeStatesChan := make(map[fsm.NodeID] fsm.NodeState);
 	var currOptimizationInputJSON []byte;
 	var optimalAssignedOrders map[string] [][]bool;
-	var prevLocallyAssignedOrders [][]bool;
 
 	for {
 		select {
@@ -204,10 +198,13 @@ func Assigner(
 
 			case a := <- CompletedOrderChan:
 				clearOrdersAtFloor(a, currHallOrdersChan, currCabOrdersChan, TurnOffLightsChan)
-				optimize = true
+
+			default:
 		}
 
 		if optimize {
+			optimize = false
+
 			// Calculate new optimalAssignedOrders time a message is received
 			currOptimizationInputJSON = encodeJSON(currHallOrdersChan, currCabOrdersChan, currAllNodeStatesChan);
 			outJSON := runOptimizer(currOptimizationInputJSON);
@@ -215,15 +212,7 @@ func Assigner(
 
 			currLocallyAssignedOrders := optimalAssignedOrders[string(localID)]
 
-			// No changes, don't send updated orders
-			if reflect.DeepEqual(currLocallyAssignedOrders, prevLocallyAssignedOrders) {
-				continue;
-			}
-
 			LocallyAssignedOrdersChan <- currLocallyAssignedOrders
-			prevLocallyAssignedOrders = currLocallyAssignedOrders
-			
-			optimize = false
 		}
 	}
 }

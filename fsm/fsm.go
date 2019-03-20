@@ -4,6 +4,7 @@ import (
 	"../elevio"
 	"time"
 	"fmt"
+	"reflect"
 )
 
 // StateMachineChannels ...
@@ -47,7 +48,7 @@ const (
 type nodeId int;
 
 type Req struct {
-	state ReqState;
+	behaviour ReqState;
 	ackBy []nodeId;
 }*/
 
@@ -61,15 +62,23 @@ for i := range assignedOrders {
 // Initialize all to unknown
 for floor := range assignedOrders {
 	for orderType := range assignedOrders[floor] {
-		assignedOrders[floor][orderType].state = Unknown;
+		assignedOrders[floor][orderType].behaviour = Unknown;
 	}
 }*/
 
-func calculateNextOrder(currFloor int, currDir OrderDir, assignedOrders [][] bool) (int) {
+func calculateNextOrder(behaviour NodeBehaviour, currFloor int, currDir OrderDir, assignedOrders [][] bool) (int) {
 	numFloors := len(assignedOrders);
+	skipCurrFloor := 0;
+
+	// Don't check currFloor if moving
+	if behaviour == MovingState {
+		skipCurrFloor = 1;
+	}
+
 	// Find the order closest to floor currFloor, checking only orders in direction currDir first
 	if currDir == Up {
-		for floor := currFloor; floor <= numFloors - 1; floor++ {
+		// Look for orders in Up direction
+		for floor := currFloor + skipCurrFloor; floor <= numFloors - 1; floor++ {
 			for orderType := elevio.BT_HallUp; orderType <= elevio.BT_Cab; orderType++ {
 				if orderType == elevio.BT_HallDown {
 					// Skip orders of opposite directon
@@ -81,14 +90,15 @@ func calculateNextOrder(currFloor int, currDir OrderDir, assignedOrders [][] boo
 			}
 		}
 		// Check orders of opposite directon last
-		for floor := numFloors -1; floor >= currFloor; floor-- {
+		for floor := numFloors - 1; floor >= currFloor + skipCurrFloor; floor-- {
 			if assignedOrders[floor][elevio.BT_HallDown] == true {
 				return floor;
 
 			}
 		}
 	} else {
-		for floor := currFloor; floor >= 0; floor-- {
+		// Look for orders in Down direction
+		for floor := currFloor - skipCurrFloor; floor >= 0; floor-- {
 			for orderType := elevio.BT_HallUp; orderType <= elevio.BT_Cab; orderType++ {
 				if orderType == elevio.BT_HallUp {
 					// Skip orders of opposite directon
@@ -100,7 +110,7 @@ func calculateNextOrder(currFloor int, currDir OrderDir, assignedOrders [][] boo
 			}
 		}
 		// Check orders of opposite directon last
-		for floor := 0; floor <= currFloor; floor++ {
+		for floor := 0; floor <= currFloor - skipCurrFloor; floor++ {
 			if assignedOrders[floor][elevio.BT_HallUp] == true {
 				return floor;
 			}
@@ -109,9 +119,9 @@ func calculateNextOrder(currFloor int, currDir OrderDir, assignedOrders [][] boo
 
 	// Check other directions if no orders are found
 	if currDir == Up {
-		return calculateNextOrder(currFloor, Down, assignedOrders);
+		return calculateNextOrder(behaviour, currFloor, Down, assignedOrders);
 	}
-	return calculateNextOrder(currFloor, Up, assignedOrders);
+	return calculateNextOrder(behaviour, currFloor, Up, assignedOrders);
 }
 
 func hasOrders(assignedOrders [][] bool) (bool) {
@@ -126,11 +136,21 @@ func hasOrders(assignedOrders [][] bool) (bool) {
 	return false;
 }
 
-func calculateDirection(currFloor int, currOrder int) (OrderDir) {
+func calculateDirection(numFloors int, currFloor int, currOrder int, currDir OrderDir) (OrderDir) {
+	if currOrder == currFloor {
+		// Change direction if elev is at top or bottom floor
+		if currFloor == 0 {
+			return Up;
+		} else if currFloor == numFloors - 1 {
+			return Down;
+		}
+		return currDir;
+	}
+
 	if currOrder > currFloor {
 		return Up;
 	}
-	return Down;
+	return Down
 }
 
 func setOrder(buttonPress elevio.ButtonEvent, assignedOrders [][]bool, TurnOnLightsChan chan<- elevio.ButtonEvent) {
@@ -172,7 +192,7 @@ func StateMachine(
 	doorOpenTime := 3 * time.Second;
 	currOrder := -1;
 	currFloor := -1;
-	var currDir OrderDir = Up;
+	currDir := Up;
 	doorTimer := time.NewTimer(0);
 
 	assignedOrders := make([][]bool, numFloors);
@@ -188,11 +208,17 @@ func StateMachine(
 
 	// Initialize elevator
 	// -----
-	state := InitState
-	nextState := state
+	behaviour := InitState
+	nextBehaviour := behaviour
+
+	// Used to transition to states when no channel action
+	// or when transitioning from a state to the same state
 	updateState := false;
-	elevio.SetMotorDirection(elevio.MD_Up)
+	
+	// Close doors and move elevator to first floor in direction Up 
 	elevio.SetDoorOpenLamp(false)
+	elevio.SetMotorDirection(elevio.MD_Up)
+	
 	fmt.Println("(fsm) Done initing");
 
 	// State selector
@@ -200,72 +226,99 @@ func StateMachine(
 	for {
 		select {
 		
+		// Time to close door
 		case <- doorTimer.C:
-			if state == InitState {
+
+			// Don't react while initing
+			if behaviour == InitState {
 				break;
 			}
 	
-			// Door has been open for the desired period of time
+			// Transition to next behaviour when door has been open
+			// for desired period of time
 			elevio.SetDoorOpenLamp(false)
 			if hasOrders(assignedOrders) {
-				nextState = MovingState
+				nextBehaviour = MovingState
 			} else {
-				nextState = IdleState
+				nextBehaviour = IdleState
 			}
 
+		// Receive optimally calculated orders for this node from optimalOrderAssigner 
 		case a := <- LocallyAssignedOrdersChan:
-			assignedOrders = a
 
-			if hasOrders(assignedOrders) && state != DoorOpenState {
-				// Calculate new order
-				nextState = MovingState
-				// Change state from moving to moving
+			// Mark the current floor as complete if doors already open in desired floor
+			// (Necessary to handle button spamming in same floor)
+			if behaviour == DoorOpenState && currOrder == currFloor {
+				CompletedOrderChan <- currFloor
+			}
+
+			// Only react to changes
+			if reflect.DeepEqual(a, assignedOrders) {
+				break
+			}
+
+			// Transition to MovingState (where new currOrder and currDir will be calculated) if there are new orders
+			assignedOrders = a
+			if hasOrders(assignedOrders) && behaviour != DoorOpenState {
+				nextBehaviour = MovingState
 				updateState = true
 			}
 
+		// Elevator arrives at a floor
 		case a := <- ArrivedAtFloorChan:
+			
 			currFloor = a;
 
-			if state == InitState {
-				nextState = IdleState
+			// Finish init sequence
+			if behaviour == InitState {
+				nextBehaviour = IdleState
 			}
 
+			// Open doors at desired floor			
 			if currFloor == currOrder {
 				CompletedOrderChan <- currFloor
-				nextState = DoorOpenState
+				nextBehaviour = DoorOpenState
 				break;
 			}
 
-			// Transmit state each when reached new floor without stopping
-			transmitState(localID, state, currFloor, currDir, LocalNodeStateChan)
+			// TransmitState everytime the elevator reaches a floor but doesn't stop 
+			transmitState(localID, behaviour, currFloor, currDir, LocalNodeStateChan)
+
+		default:
+			// Required to make State Transition Handling work even when there are no channel action
+
 		}
 
-
-		// State transition handling
+		// State Transition Handling
 		// -----
-		if nextState != state || updateState {
-			// Set new current state
-			state = nextState
-			switch state {
+		if nextBehaviour != behaviour || updateState {
+			// Set new current behaviour
+			switch nextBehaviour {
+
+				// Transitioning to DoorOpenState will stop the elevator,
+				// open the door (if not already opened) and restart the door timer
 				case DoorOpenState:
 					elevio.SetMotorDirection(elevio.MD_Stop)
 					elevio.SetDoorOpenLamp(true)
 					doorTimer.Reset(doorOpenTime)
+					updateState = false
 
+				// Transitioning to IdleState stops the elevator
 				case IdleState:
 					elevio.SetMotorDirection(elevio.MD_Stop)
 
+				// Transitioning to MovingState will always calculate new currOrder and currDir 
 				case MovingState:
-					currOrder = calculateNextOrder(currFloor, currDir, assignedOrders)
+					currOrder = calculateNextOrder(behaviour, currFloor, currDir, assignedOrders)
+					currDir = calculateDirection(numFloors, currFloor, currOrder, currDir)
 
-					// Already at desired floor
-					if currOrder == currFloor {
+					// Go directly to doorOpenState if already at desired floor and not moving
+					if currOrder == currFloor && behaviour != MovingState {
 						CompletedOrderChan <- currFloor
-						nextState = DoorOpenState
+						nextBehaviour = DoorOpenState
+						updateState = true
 						break
 					}
-
-					currDir = calculateDirection(currFloor, currOrder)
 
 					// Set motor direction
 					if currDir == Up {
@@ -273,12 +326,14 @@ func StateMachine(
 					} else {
 						elevio.SetMotorDirection(elevio.MD_Down)
 					}
+					
+					// No need to change state immediately
+					updateState = false
 			}
-			// Transmit state each time state is changed
-			transmitState(localID, state, currFloor, currDir, LocalNodeStateChan)
-			updateState = false
+			behaviour = nextBehaviour
+			// Transmit behaviour each time behaviour is changed
+			transmitState(localID, behaviour, currFloor, currDir, LocalNodeStateChan)
 		}
 	}
 }
 
-// TODO Direction is set the wrong way, fix this!
