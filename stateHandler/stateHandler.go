@@ -34,6 +34,7 @@ type ElevState struct {
 // TODO move to network module!
 type NodeID int;
 
+
 func StateHandler(localID NodeID, LocalElevStateChan <-chan ElevState, RemoteElevStateChan <-chan ElevState, 
 	AllElevStatesChan chan<- map[NodeID]ElevState) {
 
