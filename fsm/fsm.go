@@ -140,7 +140,13 @@ func setOrder(buttonPress elevio.ButtonEvent, assignedOrders [][]bool, TurnOnLig
 	TurnOnLightsChan <- buttonPress;
 }
 
-func transmitState(localID NodeID, currState NodeBehaviour, currFloor int, currDir OrderDir, LocalNodeStateChan chan<- NodeState) {
+func transmitState(
+	localID NodeID,
+	currState NodeBehaviour,
+	currFloor int,
+	currDir OrderDir,
+	LocalNodeStateChan chan<- NodeState) {
+
 	currNodeState := NodeState {
 		ID: localID,
 		Behaviour: currState,
@@ -153,11 +159,11 @@ func transmitState(localID NodeID, currState NodeBehaviour, currFloor int, currD
 
 // StateMachine ...
 // GoRoutine for handling the states of a single elevator
-func StateMachine(localID NodeID, numFloors int,
+func StateMachine(
+	localID NodeID,
+	numFloors int,
 	NewOrderChan <-chan elevio.ButtonEvent,
 	ArrivedAtFloorChan <-chan int,
-	TurnOffLightsChan chan<- elevio.ButtonEvent,
-	TurnOnLightsChan chan<- elevio.ButtonEvent,
 	HallOrderChan chan<- [][] bool,
 	CabOrderChan chan<- [] bool,
 	LocallyAssignedOrdersChan <-chan [][] bool,
@@ -198,14 +204,16 @@ func StateMachine(localID NodeID, numFloors int,
 		select {
 		
 		case <- doorTimer.C:
+			if state == InitState {
+				break;
+			}
+	
 			// Door has been open for the desired period of time
-			if state != InitState {
-				elevio.SetDoorOpenLamp(false)
-				if hasOrders(assignedOrders) {
-					nextState = MovingState
-				} else {
-					nextState = IdleState
-				}
+			elevio.SetDoorOpenLamp(false)
+			if hasOrders(assignedOrders) {
+				nextState = MovingState
+			} else {
+				nextState = IdleState
 			}
 
 		case a := <- LocallyAssignedOrdersChan:

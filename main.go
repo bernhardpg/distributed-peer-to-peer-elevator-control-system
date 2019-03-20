@@ -44,25 +44,33 @@ func main() {
 
 	// Start modules
 	// -----
-	go elevio.IOReader(numFloors,
+	go elevio.IOReader(
+		numFloors,
 		optimalAssignerChns.NewOrderChan, fsmChns.ArrivedAtFloorChan,
-		iolightsChns.FloorIndicatorChan);
+		iolightsChns.FloorIndicatorChan)
 
-	go fsm.StateMachine(localID, numFloors,
+	go fsm.StateMachine(
+		localID, numFloors,
 		optimalAssignerChns.NewOrderChan, fsmChns.ArrivedAtFloorChan,
-		iolightsChns.TurnOffLightsChan, iolightsChns.TurnOnLightsChan,
 		optimalAssignerChns.HallOrdersChan, optimalAssignerChns.CabOrdersChan, optimalAssignerChns.LocallyAssignedOrdersChan, optimalAssignerChns.CompletedOrderChan,
-		nodeStatesHandlerChns.LocalNodeStateChan);
+		nodeStatesHandlerChns.LocalNodeStateChan)
 
-	go iolights.LightHandler(numFloors,
-		iolightsChns.TurnOffLightsChan, iolightsChns.TurnOnLightsChan, iolightsChns.FloorIndicatorChan);
+	go iolights.LightHandler(
+		numFloors,
+		iolightsChns.TurnOffLightsChan, iolightsChns.TurnOnLightsChan, iolightsChns.FloorIndicatorChan)
 
-	go nodeStatesHandler.NodeStatesHandler(localID,
-		nodeStatesHandlerChns.LocalNodeStateChan, nodeStatesHandlerChns.RemoteNodeStatesChan, nodeStatesHandlerChns.AllNodeStatesChan)
+	go nodeStatesHandler.NodeStatesHandler(
+		localID,
+		nodeStatesHandlerChns.LocalNodeStateChan, nodeStatesHandlerChns.RemoteNodeStatesChan,
+		nodeStatesHandlerChns.AllNodeStatesChan)
 
-	go optimalAssigner.Assigner(localID, numFloors,
-		optimalAssignerChns.HallOrdersChan, optimalAssignerChns.CabOrdersChan, optimalAssignerChns.LocallyAssignedOrdersChan, optimalAssignerChns.NewOrderChan, optimalAssignerChns.CompletedOrderChan,
-		nodeStatesHandlerChns.AllNodeStatesChan); 
+	go optimalAssigner.Assigner(
+		localID, numFloors,
+		optimalAssignerChns.HallOrdersChan, optimalAssignerChns.CabOrdersChan,
+		optimalAssignerChns.LocallyAssignedOrdersChan, optimalAssignerChns.NewOrderChan,
+		optimalAssignerChns.CompletedOrderChan,
+		nodeStatesHandlerChns.AllNodeStatesChan,
+		iolightsChns.TurnOffLightsChan, iolightsChns.TurnOnLightsChan)
 
 	fmt.Println("(main) Started all modules");
 

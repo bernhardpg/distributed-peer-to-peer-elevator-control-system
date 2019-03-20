@@ -32,8 +32,10 @@ type optimizationInputJson struct {
 
 // Encodes the data for HallRequstAssigner script, according to
 // Format required
-func encodeJson(currHallOrdersChan [][]bool,
-	currCabOrdersChan []bool, currAllNodeStatesChan map[fsm.NodeID] fsm.NodeState)([]byte) {
+func encodeJson(
+	currHallOrdersChan [][]bool,
+	currCabOrdersChan []bool,
+	currAllNodeStatesChan map[fsm.NodeID] fsm.NodeState)([]byte) {
 
 	currStates := make(map[string] singleNodeStateJson);
 
@@ -105,7 +107,11 @@ func runOptimizer(currOptimizationInputJson []byte) ([]byte){
 	return outJson;
 }
 
-func setOrder(buttonPress elevio.ButtonEvent, hallOrders [][]bool, cabOrders []bool) {
+func setOrder(
+	buttonPress elevio.ButtonEvent,
+	hallOrders [][]bool,
+	cabOrders []bool,
+	TurnOnLightsChan chan<- elevio.ButtonEvent) {
 	if buttonPress.Button == elevio.BT_Cab {
 		cabOrders[buttonPress.Floor] = true
 	} else {
@@ -113,22 +119,43 @@ func setOrder(buttonPress elevio.ButtonEvent, hallOrders [][]bool, cabOrders []b
 	}
 
 	// TODO set lights
-	// TODO send orders to fsm!
+	//if arrived at ordered floor && !moving:
+	//	Turn off all lights on current floor
+	//if button pressed:
+	//	turn on button pressed order lamp
+
+	TurnOnLightsChan <- buttonPress
 }
 
-func clearOrdersAtFloor(floor int, hallOrders [][]bool, cabOrders []bool) {
+func clearOrdersAtFloor(
+	floor int,
+	hallOrders [][]bool,
+	cabOrders []bool,
+	TurnOffLightsChan chan<- elevio.ButtonEvent) {
 	cabOrders[floor] = false
 	hallOrders[floor] = []bool{false, false}
+
+	// Clear all buttons
+	for orderType := elevio.BT_HallUp; orderType <= elevio.BT_Cab; orderType++ {
+		TurnOffLightsChan <- elevio.ButtonEvent {
+			Floor: floor,
+			Button: orderType,
+		}
+	}
+
 }
 
-func Assigner(localID fsm.NodeID, numFloors int,
+func Assigner(
+	localID fsm.NodeID,
+	numFloors int,
 	HallOrdersChanChan <-chan [][] bool,
 	CabOrdersChanChan <-chan [] bool,
 	LocallyAssignedOrdersChan chan<- [][]bool,
 	NewOrderChan <-chan elevio.ButtonEvent,
 	CompletedOrderChan <-chan int,
-	AllNodeStatesChan <-chan map[fsm.NodeID] fsm.NodeState) { 
-
+	AllNodeStatesChan <-chan map[fsm.NodeID] fsm.NodeState,
+	TurnOffLightsChan chan<- elevio.ButtonEvent,
+	TurnOnLightsChan chan<- elevio.ButtonEvent) { 
 
 	// Initialize empty matrices
 	//-------
@@ -158,11 +185,11 @@ func Assigner(localID fsm.NodeID, numFloors int,
 				calcOptimalFlag = true
 
 			case a := <- NewOrderChan:
-				setOrder(a, currHallOrdersChan, currCabOrdersChan)
+				setOrder(a, currHallOrdersChan, currCabOrdersChan, TurnOnLightsChan)
 				calcOptimalFlag = true
 
 			case a := <- CompletedOrderChan:
-				clearOrdersAtFloor(a, currHallOrdersChan, currCabOrdersChan)
+				clearOrdersAtFloor(a, currHallOrdersChan, currCabOrdersChan, TurnOffLightsChan)
 				calcOptimalFlag = true
 		}
 
