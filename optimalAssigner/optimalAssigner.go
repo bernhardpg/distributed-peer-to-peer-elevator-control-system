@@ -5,7 +5,7 @@ import (
 	"log"
 	"os"
 	"encoding/json"
-	"../stateHandler"
+	"../fsm"
 	"../elevio"
 )
 
@@ -17,7 +17,7 @@ type OptimalAssignerChannels struct {
 	CompletedOrderChan chan int
 }
 
-type singleElevStateJson struct {
+type singleNodeStateJson struct {
 	Behaviour string 	`json:"behaviour"`
 	Floor int 			`json:"floor"`
 	Direction string 	`json:"direction"`
@@ -27,26 +27,26 @@ type singleElevStateJson struct {
 type optimizationInputJson struct {
 	// Following format req to use HallRequestAssigner (written in D)
 	HallRequests [][]bool 					`json:"hallRequests"`
-	States map[string] singleElevStateJson 	`json:"states"`
+	States map[string] singleNodeStateJson 	`json:"states"`
 }
 
 // Encodes the data for HallRequstAssigner script, according to
 // Format required
 func encodeJson(currHallOrdersChan [][]bool,
-	currCabOrdersChan []bool, currAllElevStatesChan map[stateHandler.NodeID] stateHandler.ElevState)([]byte) {
+	currCabOrdersChan []bool, currAllNodeStatesChan map[fsm.NodeID] fsm.NodeState)([]byte) {
 
-	currStates := make(map[string] singleElevStateJson);
+	currStates := make(map[string] singleNodeStateJson);
 
-	for currID, currElevState := range currAllElevStatesChan {
+	for currID, currNodeState := range currAllNodeStatesChan {
 		// TODO these need to not be hardcoded!
 		currBehaviour := "idle";
 		currDirection := "up";
 
-		//switch ElevState.dir
+		//switch NodeState.dir
 
-		currStates[string(currID)] = singleElevStateJson {
+		currStates[string(currID)] = singleNodeStateJson {
 			Behaviour: currBehaviour,
-			Floor: currElevState.Floor,
+			Floor: currNodeState.Floor,
 			Direction: currDirection,
 			CabRequests: currCabOrdersChan,
 		}
@@ -103,13 +103,13 @@ func clearOrdersAtFloor(floor int, hallOrders [][]bool, cabOrders []bool) {
 	hallOrders[floor] = []bool{false, false}
 }
 
-func Assigner(localID stateHandler.NodeID, numFloors int,
+func Assigner(localID fsm.NodeID, numFloors int,
 	HallOrdersChanChan <-chan [][] bool,
 	CabOrdersChanChan <-chan [] bool,
 	LocallyAssignedOrdersChanChan chan<- [][]bool,
 	NewOrderChanChan <-chan elevio.ButtonEvent,
 	CompletedOrderChanChan <-chan int,
-	AllElevStatesChanChan <-chan map[stateHandler.NodeID] stateHandler.ElevState) { 
+	AllNodeStatesChanChan <-chan map[fsm.NodeID] fsm.NodeState) { 
 
 
 	// Initialize empty matrices
@@ -128,15 +128,15 @@ func Assigner(localID stateHandler.NodeID, numFloors int,
 		currCabOrdersChan[floor] = false
 	}
 
-	currAllElevStatesChan := make(map[stateHandler.NodeID] stateHandler.ElevState);
+	currAllNodeStatesChan := make(map[fsm.NodeID] fsm.NodeState);
 	var currOptimizationInputJson []byte;
 	var optimalAssignedOrders map[string] [][]bool;
 	calcOptimalFlag := false;
 
 	for {
 		select {
-			case a := <- AllElevStatesChanChan:
-				currAllElevStatesChan = a
+			case a := <- AllNodeStatesChanChan:
+				currAllNodeStatesChan = a
 				calcOptimalFlag = true
 
 			case a := <- NewOrderChanChan:
@@ -149,7 +149,7 @@ func Assigner(localID stateHandler.NodeID, numFloors int,
 		}
 
 		if calcOptimalFlag {
-			currOptimizationInputJson = encodeJson(currHallOrdersChan, currCabOrdersChan, currAllElevStatesChan);
+			currOptimizationInputJson = encodeJson(currHallOrdersChan, currCabOrdersChan, currAllNodeStatesChan);
 			outJson := runOptimizer(currOptimizationInputJson);
 			json.Unmarshal(outJson, &optimalAssignedOrders);
 			LocallyAssignedOrdersChanChan <- optimalAssignedOrders[string(localID)]

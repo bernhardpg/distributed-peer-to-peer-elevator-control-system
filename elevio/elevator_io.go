@@ -161,10 +161,10 @@ func IOReader(numFloors int, NewOrder chan<- ButtonEvent, ArrivedAtFloor chan<- 
 			FloorIndicator <- a;
 
 		case a := <-drv_obstr:
-			fmt.Printf("%+v\n", a);
+			fmt.Printf("(elevio) Obstruction: %+v\n", a);
 
 		case a := <-drv_stop:
-			fmt.Printf("%+v\n", a)
+			fmt.Printf("(elevio) Stop: %+v\n", a)
 		}
 	}
 }

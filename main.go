@@ -5,13 +5,13 @@ import (
 	"./elevio"
 	"./iolights"
 	"./optimalAssigner"
-	"./stateHandler"
+	"./nodeStatesHandler"
 	"fmt"
 )
 
 
 func main() {
-	var localID stateHandler.NodeID = 1;
+	var localID fsm.NodeID = 1;
 	numFloors := 4;
 
 	fsmChns := fsm.StateMachineChannels {
@@ -30,10 +30,11 @@ func main() {
 		LocallyAssignedOrdersChan: make(chan [][] bool, 2),
 		// Needs a buffer size bigger than one because the optimalAssigner might send on this channel multiple times before FSM manages to receive!
 	}
-	stateHandlerChns := stateHandler.StateHandlerChannels {
-		LocalElevStateChan: make(chan stateHandler.ElevState),
-		RemoteElevStateChan: make(chan stateHandler.ElevState),
-		AllElevStatesChan: make(chan map[stateHandler.NodeID] stateHandler.ElevState, 2), // TODO: does allElevStates need a buffer bigger than 1?
+	nodeStatesHandlerChns := nodeStatesHandler.NodeStatesHandlerChannels {
+		LocalNodeStateChan: make(chan fsm.NodeState),
+		RemoteNodeStatesChan: make(chan fsm.NodeState),
+		AllNodeStatesChan: make(chan map[fsm.NodeID] fsm.NodeState, 2),
+		// TODO: does allNodeStates need a buffer bigger than 1?
 	}
 
 
@@ -49,19 +50,19 @@ func main() {
 		optimalAssignerChns.NewOrderChan, fsmChns.ArrivedAtFloorChan,
 		iolightsChns.TurnOffLightsChan, iolightsChns.TurnOnLightsChan,
 		optimalAssignerChns.HallOrdersChan, optimalAssignerChns.CabOrdersChan, optimalAssignerChns.LocallyAssignedOrdersChan, optimalAssignerChns.CompletedOrderChan,
-		stateHandlerChns.LocalElevStateChan);
+		nodeStatesHandlerChns.LocalNodeStateChan);
 
 	go iolights.LightHandler(numFloors,
 		iolightsChns.TurnOffLightsChan, iolightsChns.TurnOnLightsChan, iolightsChns.FloorIndicatorChan);
 
-	go stateHandler.StateHandler(localID,
-		stateHandlerChns.LocalElevStateChan, stateHandlerChns.RemoteElevStateChan, stateHandlerChns.AllElevStatesChan)
+	go nodeStatesHandler.NodeStatesHandler(localID,
+		nodeStatesHandlerChns.LocalNodeStateChan, nodeStatesHandlerChns.RemoteNodeStatesChan, nodeStatesHandlerChns.AllNodeStatesChan)
 
 	go optimalAssigner.Assigner(localID, numFloors,
 		optimalAssignerChns.HallOrdersChan, optimalAssignerChns.CabOrdersChan, optimalAssignerChns.LocallyAssignedOrdersChan, optimalAssignerChns.NewOrderChan, optimalAssignerChns.CompletedOrderChan,
-		stateHandlerChns.AllElevStatesChan); 
+		nodeStatesHandlerChns.AllNodeStatesChan); 
 
-	fmt.Println("Started all modules");
+	fmt.Println("(main) Started all modules");
 
 	for {};
 }
