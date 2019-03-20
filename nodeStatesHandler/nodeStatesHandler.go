@@ -11,8 +11,8 @@ type NodeStatesHandlerChannels struct {
 	AllNodeStatesChan chan map[fsm.NodeID]fsm.NodeState
 }
 
-func NodeStatesHandler(localID fsm.NodeID, LocalNodeStateChanChan <-chan fsm.NodeState, RemoteNodeStatesChanChan <-chan fsm.NodeState, 
-	AllNodeStatesChanChan chan<- map[fsm.NodeID]fsm.NodeState) {
+func NodeStatesHandler(localID fsm.NodeID, LocalNodeStateChan <-chan fsm.NodeState, RemoteNodeStatesChan <-chan fsm.NodeState, 
+	AllNodeStatesChan chan<- map[fsm.NodeID]fsm.NodeState) {
 
 //	LocalStateToNetwork := make(chan NodeState)
 
@@ -23,14 +23,14 @@ func NodeStatesHandler(localID fsm.NodeID, LocalNodeStateChanChan <-chan fsm.Nod
 	for {
 		select {
 
-		case a := <-LocalNodeStateChanChan:
+		case a := <-LocalNodeStateChan:
 			allNodeStates[localID] = a
 //			LocalStateToNetwork <- allNodeStates[localID]
-			AllNodeStatesChanChan <- allNodeStates
+			AllNodeStatesChan <- allNodeStates
 
-		case a := <-RemoteNodeStatesChanChan:
+		case a := <-RemoteNodeStatesChan:
 			allNodeStates[a.ID] = a
-			AllNodeStatesChanChan <- allNodeStates
+			AllNodeStatesChan <- allNodeStates
 
 			fmt.Println(a)
 		}
