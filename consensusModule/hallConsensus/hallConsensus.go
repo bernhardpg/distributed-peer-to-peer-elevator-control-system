@@ -4,7 +4,7 @@ import(
 	"../../elevio"
 	"../../stateHandler"
 	"fmt"
-	"fsm"
+	"../../fsm"
 	"../requestConsensus"
 	)
 
@@ -31,7 +31,7 @@ func clearOrdersAtFloor(localID fsm.NodeID, floor int, locallyAssignedHallOrders
 
 */
 			
-func updateConfirmedHallOrders(locallyAssignedHallOrders [][] Req, confirmedHallOrders *[][] bool){
+func updateConfirmedHallOrders(locallyAssignedHallOrders [][] requestConsensus.Req, confirmedHallOrders *[][] bool){
 	for floor := range locallyAssignedHallOrders {
 		for orderReq := range locallyAssignedHallOrders[floor] {
 			if locallyAssignedHallOrders[floor][orderReq].state == Confirmed {
@@ -133,13 +133,14 @@ func OrderConsensus(localID fsm.NodeID,
 					pLocal := &locallyAssignedHallOrders[floor][orderReq]
 					pRemote := &remoteHallOrders[floor][orderReq]
 
-					requestConsensus.merge(p_local, p_remote, localID, peersList)
+					requestConsensus.merge(pLocal, pRemote, localID, peersList)
+				}
+			}
 
 			updateConfirmedHallOrders(locallyAssignedHallOrders, &confirmedHallOrders)
 			ConfirmedHallOrdersToIOChan <- confirmedHallOrders
 			ConfirmedHallOrdersToAssignerChan <- confirmedHallOrders
 			LocalHallOrdersToNewtorkChan <- locallyAssignedHallOrders
-
 	}
-
+}
 }
