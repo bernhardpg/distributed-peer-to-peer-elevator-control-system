@@ -7,14 +7,12 @@ import (
 
 type NodeStatesHandlerChannels struct {
 	LocalNodeStateChan chan fsm.NodeState
-	RemoteNodeStatesChan chan fsm.NodeState
 	AllNodeStatesChan chan map[network.NodeID]fsm.NodeState
 }
 
 func NodeStatesHandler(
 	localID network.NodeID,
 	LocalNodeStateFsmChan <-chan fsm.NodeState,
-	RemoteNodeStatesChan <-chan fsm.NodeState, 
 	AllNodeStatesChan chan<- map[network.NodeID]fsm.NodeState,
 	BroadcastLocalNodeStateChan chan<- fsm.NodeState) {
 	

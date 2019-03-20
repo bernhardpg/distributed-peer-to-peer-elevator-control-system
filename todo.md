@@ -7,6 +7,7 @@
 - Everything crashes when starting elevator outside boundaries
 - Comment all code
 - Better names for LocalNodeStateChan ?
+- Change all variable declarations from 'var' to i.e. 'localState := fsm.NodeState {}'
 
 ### DONE
 - Test spamming while initting

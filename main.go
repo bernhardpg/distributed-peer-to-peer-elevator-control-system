@@ -33,7 +33,6 @@ func main() {
 	}
 	nodeStatesHandlerChns := nodeStatesHandler.NodeStatesHandlerChannels {
 		LocalNodeStateChan: make(chan fsm.NodeState),
-		RemoteNodeStatesChan: make(chan fsm.NodeState),
 		AllNodeStatesChan: make(chan map[network.NodeID] fsm.NodeState),
 	}
 	networkChns := network.Channels {
@@ -67,7 +66,6 @@ func main() {
 	go nodeStatesHandler.NodeStatesHandler(
 		localID,
 		nodeStatesHandlerChns.LocalNodeStateChan,
-		nodeStatesHandlerChns.RemoteNodeStatesChan,
 		nodeStatesHandlerChns.AllNodeStatesChan,
 		networkChns.LocalNodeStateChan)
 
@@ -81,6 +79,7 @@ func main() {
 		iolightsChns.TurnOnLightsChan)
 
 	go network.Module(
+		localID,
 		networkChns.LocalNodeStateChan)
 
 	fmt.Println("(main) Started all modules");

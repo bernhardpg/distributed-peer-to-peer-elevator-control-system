@@ -3,6 +3,7 @@ package network
 import (
 	"time"
 	"fmt"
+	"./driver/bcast"
 	"../fsm"
 )
 
@@ -14,13 +15,21 @@ type Channels struct {
 	LocalNodeStateChan chan fsm.NodeState
 }
 
-type localNodeStateMsg struct {
+type localStateMsg struct {
 	ID NodeID
 	State fsm.NodeState
 }
 
 func Module(
+	localID NodeID,
 	LocalNodeStateChan <-chan fsm.NodeState) {
+
+	// Setup channels and modules for sending and receiving localStateMsg
+	localStateTx := make(chan localStateMsg)
+	localStateRx := make(chan localStateMsg)
+	go bcast.Transmitter(16569, localStateTx)
+	go bcast.Receiver(16569, localStateRx)
+
 	
 	localState := fsm.NodeState {}
 
@@ -29,7 +38,15 @@ func Module(
 
 		case a := <-LocalNodeStateChan:
 			localState = a
-			fmt.Println(localState)
+			localStateTx <- localStateMsg {
+				ID: localID,
+				State: localState,
+			}
+
+		case a := <- localStateRx:
+			if a.ID != localID {
+				fmt.Println("(network) Received: ", a)
+			}
 		}
 	}
 }
