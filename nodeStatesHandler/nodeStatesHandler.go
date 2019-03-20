@@ -1,24 +1,24 @@
 package nodeStatesHandler
 
 import (
-	"fmt"
 	"../fsm"
+	"../network"
 )
 
 type NodeStatesHandlerChannels struct {
 	LocalNodeStateChan chan fsm.NodeState
 	RemoteNodeStatesChan chan fsm.NodeState
-	AllNodeStatesChan chan map[fsm.NodeID]fsm.NodeState
+	AllNodeStatesChan chan map[network.NodeID]fsm.NodeState
 }
 
 func NodeStatesHandler(
-	localID fsm.NodeID,
+	localID network.NodeID,
 	LocalNodeStateFsmChan <-chan fsm.NodeState,
 	RemoteNodeStatesChan <-chan fsm.NodeState, 
-	AllNodeStatesChan chan<- map[fsm.NodeID]fsm.NodeState,
+	AllNodeStatesChan chan<- map[network.NodeID]fsm.NodeState,
 	BroadcastLocalNodeStateChan chan<- fsm.NodeState) {
 	
-	var allNodeStates = make(map[fsm.NodeID]fsm.NodeState)
+	var allNodeStates = make(map[network.NodeID]fsm.NodeState)
 
 	// TODO remove lost peers from allStates
 
@@ -28,14 +28,14 @@ func NodeStatesHandler(
 		case a := <-LocalNodeStateFsmChan:
 			allNodeStates[localID] = a
 
-			BroadcastLocalNodeStateChan <- allNodeStates[localID]
+			BroadcastLocalNodeStateChan <- a
 			AllNodeStatesChan <- allNodeStates
 
-		case a := <-RemoteNodeStatesChan:
+		/*case a := <-RemoteNodeStatesChan:
 			allNodeStates[a.ID] = a
 			AllNodeStatesChan <- allNodeStates
 
-			fmt.Println(a)
+			fmt.Println(a)*/
 		}
 
 	}

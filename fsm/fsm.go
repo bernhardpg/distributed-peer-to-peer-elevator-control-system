@@ -28,13 +28,11 @@ const (
 )
 
 type NodeState struct {
-	ID NodeID
 	Behaviour NodeBehaviour
 	Floor int
 	Dir   OrderDir
 }
 
-type NodeID int;
 
 /*// TODO move these data types to correct file!
 type ReqState int;
@@ -159,14 +157,12 @@ func setOrder(buttonPress elevio.ButtonEvent, assignedOrders [][]bool, TurnOnLig
 }
 
 func transmitState(
-	localID NodeID,
 	currState NodeBehaviour,
 	currFloor int,
 	currDir OrderDir,
 	LocalNodeStateChan chan<- NodeState) {
 
 	currNodeState := NodeState {
-		ID: localID,
 		Behaviour: currState,
 		Floor: currFloor,
 		Dir: currDir, 
@@ -178,11 +174,8 @@ func transmitState(
 // StateMachine ...
 // GoRoutine for handling the states of a single elevator
 func StateMachine(
-	localID NodeID,
 	numFloors int,
 	ArrivedAtFloorChan <-chan int,
-	HallOrderChan chan<- [][] bool,
-	CabOrderChan chan<- [] bool,
 	LocallyAssignedOrdersChan <-chan [][] bool,
 	CompletedOrderChan chan<- int,
 	LocalNodeStateChan chan<- NodeState) {
@@ -283,7 +276,7 @@ func StateMachine(
 			}
 
 			// TransmitState everytime the elevator reaches a floor but doesn't stop 
-			transmitState(localID, behaviour, currFloor, currDir, LocalNodeStateChan)
+			transmitState(behaviour, currFloor, currDir, LocalNodeStateChan)
 
 		default:
 			// Required to make State Transition Handling work even when there are no channel action
@@ -333,7 +326,7 @@ func StateMachine(
 			}
 			behaviour = nextBehaviour
 			// Transmit behaviour each time behaviour is changed
-			transmitState(localID, behaviour, currFloor, currDir, LocalNodeStateChan)
+			transmitState(behaviour, currFloor, currDir, LocalNodeStateChan)
 		}
 	}
 }

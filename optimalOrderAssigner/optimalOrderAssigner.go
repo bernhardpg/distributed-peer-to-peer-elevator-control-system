@@ -6,12 +6,11 @@ import (
 	"os"
 	"encoding/json"
 	"../fsm"
+	"../network"
 	"../elevio"
 )
 
 type OptimalOrderAssignerChannels struct {
-	HallOrdersChan chan [][] bool
-	CabOrdersChan chan [] bool
 	NewOrderChan chan elevio.ButtonEvent // TODO move to consensus module
 	LocallyAssignedOrdersChan chan [][] bool
 	CompletedOrderChan chan int
@@ -33,13 +32,13 @@ type optimizationInputJSON struct {
 // Encodes the data for HallRequstAssigner script, according to
 // Format required
 func encodeJSON(
-	currHallOrdersChan [][]bool,
-	currCabOrdersChan []bool,
-	currAllNodeStatesChan map[fsm.NodeID] fsm.NodeState)([]byte) {
+	currHallOrders [][]bool,
+	currCabOrders []bool,
+	currAllNodeStates map[network.NodeID] fsm.NodeState)([]byte) {
 
 	currStates := make(map[string] singleNodeStateJSON);
 
-	for currID, currNodeState := range currAllNodeStatesChan {
+	for currID, currNodeState := range currAllNodeStates {
 		currBehaviour := "";
 		currDirection := "";
 
@@ -68,13 +67,13 @@ func encodeJSON(
 			Behaviour: currBehaviour,
 			Floor: currNodeState.Floor,
 			Direction: currDirection,
-			CabRequests: currCabOrdersChan,
+			CabRequests: currCabOrders,
 		}
 	}
 
 
 	currOptimizationInput := optimizationInputJSON {
-		HallRequests: currHallOrdersChan,
+		HallRequests: currHallOrders,
 		States: currStates,
 	}
 
@@ -152,62 +151,60 @@ func clearOrdersAtFloor(
 }
 
 func Assigner(
-	localID fsm.NodeID,
+	localID network.NodeID,
 	numFloors int,
-	HallOrdersChanChan <-chan [][] bool,
-	CabOrdersChanChan <-chan [] bool,
 	LocallyAssignedOrdersChan chan<- [][]bool,
 	NewOrderChan <-chan elevio.ButtonEvent,
 	CompletedOrderChan <-chan int,
-	AllNodeStatesChan <-chan map[fsm.NodeID] fsm.NodeState,
+	AllNodeStatesChan <-chan map[network.NodeID] fsm.NodeState,
 	TurnOffLightsChan chan<- elevio.ButtonEvent,
 	TurnOnLightsChan chan<- elevio.ButtonEvent) { 
 
 	// Initialize empty matrices
 	//-------
-	currHallOrdersChan := make([][] bool, numFloors); 
-	currCabOrdersChan := make([] bool, numFloors);
+	currHallOrders := make([][] bool, numFloors); 
+	currCabOrders := make([] bool, numFloors);
 
-	for floor := range currHallOrdersChan {
-		currHallOrdersChan[floor] = make([] bool, 2)
+	for floor := range currHallOrders {
+		currHallOrders[floor] = make([] bool, 2)
 	}
 
-	for floor := range currHallOrdersChan {
-		for orderType := range currHallOrdersChan[floor] {
-			currHallOrdersChan[floor][orderType] = false
+	for floor := range currHallOrders {
+		for orderType := range currHallOrders[floor] {
+			currHallOrders[floor][orderType] = false
 		}
-		currCabOrdersChan[floor] = false
+		currCabOrders[floor] = false
 	}
 
 	optimize := false
-	currAllNodeStatesChan := make(map[fsm.NodeID] fsm.NodeState);
+	currAllNodeStates := make(map[network.NodeID] fsm.NodeState);
 	var currOptimizationInputJSON []byte;
 	var optimalAssignedOrders map[string] [][]bool;
 
 	for {
 		select {
 			case a := <- AllNodeStatesChan:
-				currAllNodeStatesChan = a
+				currAllNodeStates = a
 				optimize = true
 
 			case a := <- NewOrderChan:
 				// Optimize if something is changed
-				if setOrder(a, currHallOrdersChan, currCabOrdersChan, TurnOnLightsChan) {
+				if setOrder(a, currHallOrders, currCabOrders, TurnOnLightsChan) {
 					optimize = true
 				}
 
 			case a := <- CompletedOrderChan:
-				clearOrdersAtFloor(a, currHallOrdersChan, currCabOrdersChan, TurnOffLightsChan)
+				clearOrdersAtFloor(a, currHallOrders, currCabOrders, TurnOffLightsChan)
 
 			default:
 		}
 
 		// Calculate optimal AssignedLocalOrders when new data has arrived and states have been initialized 
-		if optimize && len(currAllNodeStatesChan) != 0 {
+		if optimize && len(currAllNodeStates) != 0 {
 			optimize = false
 
 			// Calculate new optimalAssignedOrders time a message is received
-			currOptimizationInputJSON = encodeJSON(currHallOrdersChan, currCabOrdersChan, currAllNodeStatesChan);
+			currOptimizationInputJSON = encodeJSON(currHallOrders, currCabOrders, currAllNodeStates);
 			outJSON := runOptimizer(currOptimizationInputJSON);
 			json.Unmarshal(outJSON, &optimalAssignedOrders);
 

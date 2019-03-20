@@ -6,13 +6,13 @@ import (
 	"./iolights"
 	"./optimalOrderAssigner"
 	"./nodeStatesHandler"
-	"./networkModule"
+	"./network"
 	"fmt"
 )
 
 
 func main() {
-	var localID fsm.NodeID = 1;
+	var localID network.NodeID = 1;
 	numFloors := 4;
 
 	// Init channels
@@ -26,8 +26,6 @@ func main() {
 		FloorIndicatorChan: make(chan int),
 	}
 	optimalOrderAssignerChns := optimalOrderAssigner.OptimalOrderAssignerChannels {
-		HallOrdersChan: make(chan [][] bool),
-		CabOrdersChan: make(chan [] bool),
 		NewOrderChan: make(chan elevio.ButtonEvent), // TODO move to consensus module
 		CompletedOrderChan: make(chan int),
 		LocallyAssignedOrdersChan: make(chan [][] bool, 2),
@@ -36,9 +34,9 @@ func main() {
 	nodeStatesHandlerChns := nodeStatesHandler.NodeStatesHandlerChannels {
 		LocalNodeStateChan: make(chan fsm.NodeState),
 		RemoteNodeStatesChan: make(chan fsm.NodeState),
-		AllNodeStatesChan: make(chan map[fsm.NodeID] fsm.NodeState),
+		AllNodeStatesChan: make(chan map[network.NodeID] fsm.NodeState),
 	}
-	networkModuleChns := networkModule.Channels {
+	networkChns := network.Channels {
 		LocalNodeStateChan: make(chan fsm.NodeState),
 	}
 
@@ -54,10 +52,8 @@ func main() {
 		iolightsChns.FloorIndicatorChan)
 
 	go fsm.StateMachine(
-		localID, numFloors,
+		numFloors,
 		fsmChns.ArrivedAtFloorChan,
-		optimalOrderAssignerChns.HallOrdersChan,
-		optimalOrderAssignerChns.CabOrdersChan,
 		optimalOrderAssignerChns.LocallyAssignedOrdersChan,
 		optimalOrderAssignerChns.CompletedOrderChan,
 		nodeStatesHandlerChns.LocalNodeStateChan)
@@ -73,12 +69,10 @@ func main() {
 		nodeStatesHandlerChns.LocalNodeStateChan,
 		nodeStatesHandlerChns.RemoteNodeStatesChan,
 		nodeStatesHandlerChns.AllNodeStatesChan,
-		networkModuleChns.LocalNodeStateChan)
+		networkChns.LocalNodeStateChan)
 
 	go optimalOrderAssigner.Assigner(
 		localID, numFloors,
-		optimalOrderAssignerChns.HallOrdersChan,
-		optimalOrderAssignerChns.CabOrdersChan,
 		optimalOrderAssignerChns.LocallyAssignedOrdersChan,
 		optimalOrderAssignerChns.NewOrderChan,
 		optimalOrderAssignerChns.CompletedOrderChan,
@@ -86,8 +80,8 @@ func main() {
 		iolightsChns.TurnOffLightsChan,
 		iolightsChns.TurnOnLightsChan)
 
-	go networkModule.Module(
-		networkModuleChns.LocalNodeStateChan)
+	go network.Module(
+		networkChns.LocalNodeStateChan)
 
 	fmt.Println("(main) Started all modules");
 
