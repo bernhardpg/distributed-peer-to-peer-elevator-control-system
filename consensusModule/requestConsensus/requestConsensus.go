@@ -52,29 +52,29 @@ func containsList(primaryList [] fsm.NodeID, listFraction [] fsm.NodeID) bool {
 
 func merge (pLocal *Req, pRemote *Req, localID fsm.NodeID, peersList [] fsm.NodeID){
 
-	switch *pLocal.state {
+	switch (*pLocal).state {
 
 	case Inactive:
-		if *pRemote.state == PendingAck {
+		if (*pRemote).state == PendingAck {
 			*pLocal = Req {
 				state: PendingAck, 
-				ackBy: uniqueIDSlice(append(*pRemote.ackBy, localID)),
+				ackBy: uniqueIDSlice(append((*pRemote).ackBy, localID)),
 			}
 		}
 
 	case PendingAck:
-		*pLocal.ackBy = uniqueIDSlice(append(*pRemote.ackBy, localID))
+		(*pLocal).ackBy = uniqueIDSlice(append((*pRemote).ackBy, localID))
 
-		if *pRemote.state == Confirmed || containsList(*pLocal.ackBy, peersList) {
-			*pLocal.state = Confirmed
+		if (*pRemote).state == Confirmed || containsList((*pLocal).ackBy, peersList) {
+			(*pLocal).state = Confirmed
 			//Signaliser confirmed
 		}
 		
 
 	case Confirmed:
-		*pLocal.ackBy = uniqueIDSlice(append(*pRemote.ackBy, localID))
+		(*pLocal).ackBy = uniqueIDSlice(append((*pRemote).ackBy, localID))
 
-		if remoteHallOrders[floor][orderReq].state == Inactive {
+		if (*pRemote).state == Inactive {
 			*pLocal = Req {
 				state: Inactive,
 				ackBy: nil,
@@ -83,7 +83,7 @@ func merge (pLocal *Req, pRemote *Req, localID fsm.NodeID, peersList [] fsm.Node
 
 
 	case Unknown:
-		switch *pRemote.state {
+		switch (*pRemote).state {
 
 
 		case Inactive:
@@ -96,14 +96,14 @@ func merge (pLocal *Req, pRemote *Req, localID fsm.NodeID, peersList [] fsm.Node
 		case PendingAck:
 			*pLocal = Req {
 				state: PendingAck,
-				ackBy: uniqueIDSlice(append(*pRemote.ackBy, localID)),
+				ackBy: uniqueIDSlice(append((*pRemote).ackBy, localID)),
 			}
 
 
 		case Confirmed:
 			*pLocal = Req {
 				state: Confirmed,
-				ackBy: uniqueIDSlice(append(*pRemote.ackBy, localID)),
+				ackBy: uniqueIDSlice(append((*pRemote).ackBy, localID)),
 				//Signaliser confirmed
 			}	
 		}
