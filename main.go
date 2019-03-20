@@ -4,35 +4,38 @@ import (
 	"./fsm"
 	"./elevio"
 	"./iolights"
-	"./optimalAssigner"
-	"./stateHandler"
+	"./optimalOrderAssigner"
+	"./nodeStatesHandler"
 	"fmt"
 )
 
 
 func main() {
-	var localID stateHandler.NodeID = 1;
+	var localID fsm.NodeID = 1;
 	numFloors := 4;
 
+	// Init channels
+	// -----
 	fsmChns := fsm.StateMachineChannels {
-		ArrivedAtFloor: make(chan int),
+		ArrivedAtFloorChan: make(chan int),
 	}
 	iolightsChns := iolights.LightsChannels {
-		TurnOnLights: make(chan elevio.ButtonEvent),
-		TurnOffLights: make(chan elevio.ButtonEvent),
-		FloorIndicator: make(chan int),
+		TurnOnLightsChan: make(chan elevio.ButtonEvent),
+		TurnOffLightsChan: make(chan elevio.ButtonEvent),
+		FloorIndicatorChan: make(chan int),
 	}
-	optimalAssignerChns := optimalAssigner.OptimalAssignerChannels {
-		HallOrders: make(chan [][] bool),
-		CabOrders: make(chan [] bool),
-		NewOrder: make(chan elevio.ButtonEvent),  // TODO move to consensus module
-		CompletedOrder: make(chan int),
-		LocallyAssignedOrders: make(chan [][] bool),
+	optimalOrderAssignerChns := optimalOrderAssigner.OptimalOrderAssignerChannels {
+		HallOrdersChan: make(chan [][] bool),
+		CabOrdersChan: make(chan [] bool),
+		NewOrderChan: make(chan elevio.ButtonEvent), // TODO move to consensus module
+		CompletedOrderChan: make(chan int),
+		LocallyAssignedOrdersChan: make(chan [][] bool, 2),
+		// Needs a buffer size bigger than one because the optimalOrderAssigner might send on this channel multiple times before FSM manages to receive!
 	}
-	stateHandlerChns := stateHandler.StateHandlerChannels {
-		LocalElevState: make(chan stateHandler.ElevState),
-		RemoteElevState: make(chan stateHandler.ElevState),
-		AllElevStates: make(chan map[stateHandler.NodeID] stateHandler.ElevState),
+	nodeStatesHandlerChns := nodeStatesHandler.NodeStatesHandlerChannels {
+		LocalNodeStateChan: make(chan fsm.NodeState),
+		RemoteNodeStatesChan: make(chan fsm.NodeState),
+		AllNodeStatesChan: make(chan map[fsm.NodeID] fsm.NodeState),
 	}
 
 
@@ -40,27 +43,37 @@ func main() {
 
 	// Start modules
 	// -----
-	go elevio.IOReader(numFloors,
-		optimalAssignerChns.NewOrder, fsmChns.ArrivedAtFloor,
-		iolightsChns.FloorIndicator);
+	go elevio.IOReader(
+		numFloors,
+		optimalOrderAssignerChns.NewOrderChan, fsmChns.ArrivedAtFloorChan,
+		iolightsChns.FloorIndicatorChan)
 
-	go fsm.StateMachine(localID, numFloors,
-		optimalAssignerChns.NewOrder, fsmChns.ArrivedAtFloor,
-		iolightsChns.TurnOffLights, iolightsChns.TurnOnLights,
-		optimalAssignerChns.HallOrders, optimalAssignerChns.CabOrders, optimalAssignerChns.LocallyAssignedOrders, optimalAssignerChns.CompletedOrder,
-		stateHandlerChns.LocalElevState);
+	go fsm.StateMachine(
+		localID, numFloors,
+		fsmChns.ArrivedAtFloorChan,
+		optimalOrderAssignerChns.HallOrdersChan, optimalOrderAssignerChns.CabOrdersChan, optimalOrderAssignerChns.LocallyAssignedOrdersChan, optimalOrderAssignerChns.CompletedOrderChan,
+		nodeStatesHandlerChns.LocalNodeStateChan)
 
-	go iolights.LightHandler(numFloors,
-		iolightsChns.TurnOffLights, iolightsChns.TurnOnLights, iolightsChns.FloorIndicator);
+	go iolights.LightHandler(
+		numFloors,
+		iolightsChns.TurnOffLightsChan, iolightsChns.TurnOnLightsChan, iolightsChns.FloorIndicatorChan)
 
-	go stateHandler.StateHandler(localID,
-		stateHandlerChns.LocalElevState, stateHandlerChns.RemoteElevState, stateHandlerChns.AllElevStates)
+	go nodeStatesHandler.NodeStatesHandler(
+		localID,
+		nodeStatesHandlerChns.LocalNodeStateChan, nodeStatesHandlerChns.RemoteNodeStatesChan,
+		nodeStatesHandlerChns.AllNodeStatesChan)
 
-	go optimalAssigner.Assigner(localID, numFloors,
-		optimalAssignerChns.HallOrders, optimalAssignerChns.CabOrders, optimalAssignerChns.LocallyAssignedOrders, optimalAssignerChns.NewOrder, optimalAssignerChns.CompletedOrder,
-		stateHandlerChns.AllElevStates); 
+	go optimalOrderAssigner.Assigner(
+		localID, numFloors,
+		optimalOrderAssignerChns.HallOrdersChan, optimalOrderAssignerChns.CabOrdersChan,
+		optimalOrderAssignerChns.LocallyAssignedOrdersChan, optimalOrderAssignerChns.NewOrderChan,
+		optimalOrderAssignerChns.CompletedOrderChan,
+		nodeStatesHandlerChns.AllNodeStatesChan,
+		iolightsChns.TurnOffLightsChan, iolightsChns.TurnOnLightsChan)
 
-	fmt.Println("Started all modules");
+	fmt.Println("(main) Started all modules");
 
-	for {};
+	for {
+		select {}
+	}
 }

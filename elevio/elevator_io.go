@@ -53,8 +53,6 @@ func Init(addr string, numFloors int) {
 	_initialized = true
 }
 
-
-
 func SetMotorDirection(dir MotorDirection) {
 	_mtx.Lock()
 	defer _mtx.Unlock()
@@ -84,8 +82,6 @@ func SetStopLamp(value bool) {
 	defer _mtx.Unlock()
 	_conn.Write([]byte{5, toByte(value), 0, 0})
 }
-
-
 
 func PollButtons(receiver chan<- ButtonEvent) {
 	prev := make([][3]bool, _numFloors)
@@ -138,37 +134,6 @@ func PollObstructionSwitch(receiver chan<- bool) {
 		prev = v
 	}
 }
-
-// Main routine for reading io values and passing them on to corresponding channels
-func IOReader(numFloors int, NewOrder chan<- ButtonEvent, ArrivedAtFloor chan<- int, FloorIndicator chan<- int) {
-	drv_buttons := make(chan ButtonEvent)
-	drv_floors := make(chan int)
-	drv_obstr := make(chan bool)
-	drv_stop := make(chan bool)
-
-	go PollButtons(drv_buttons)
-	go PollFloorSensor(drv_floors)
-	go PollObstructionSwitch(drv_obstr)
-	go PollStopButton(drv_stop)
-
-	for {
-		select {
-		case a := <-drv_buttons:
-			NewOrder <- a;
-
-		case a := <-drv_floors:
-			ArrivedAtFloor <- a;
-			FloorIndicator <- a;
-
-		case a := <-drv_obstr:
-			fmt.Printf("%+v\n", a);
-
-		case a := <-drv_stop:
-			fmt.Printf("%+v\n", a)
-		}
-	}
-}
-
 
 func getButton(button ButtonType, floor int) bool {
 	_mtx.Lock()
@@ -224,4 +189,39 @@ func toBool(a byte) bool {
 		b = true
 	}
 	return b
+}
+
+// Main routine for reading io values and passing them on to corresponding channels
+func IOReader(
+	numFloors int,
+	NewOrderChan chan<- ButtonEvent,
+	ArrivedAtFloorChan chan<- int,
+	FloorIndicatorChan chan<- int) {
+
+	drv_buttons := make(chan ButtonEvent)
+	drv_floors := make(chan int)
+	drv_obstr := make(chan bool)
+	drv_stop := make(chan bool)
+
+	go PollButtons(drv_buttons)
+	go PollFloorSensor(drv_floors)
+	go PollObstructionSwitch(drv_obstr)
+	go PollStopButton(drv_stop)
+
+	for {
+		select {
+		case a := <-drv_buttons:
+			NewOrderChan <- a;
+
+		case a := <-drv_floors:
+			ArrivedAtFloorChan <- a;
+			FloorIndicatorChan <- a;
+
+		case a := <-drv_obstr:
+			fmt.Printf("(elevio) Obstruction: %+v\n", a);
+
+		case a := <-drv_stop:
+			fmt.Printf("(elevio) Stop: %+v\n", a)
+		}
+	}
 }
