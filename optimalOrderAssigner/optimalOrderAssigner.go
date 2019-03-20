@@ -8,6 +8,7 @@ import (
 	"../fsm"
 	"reflect"
 	"../elevio"
+	"fmt"
 )
 
 type OptimalOrderAssignerChannels struct {
@@ -79,8 +80,11 @@ func encodeJSON(
 		States: currStates,
 	}
 
-
 	currOptimizationInputJSON,_ := json.Marshal(currOptimizationInput);
+
+	fmt.Println(string(currOptimizationInputJSON))
+	fmt.Println(currAllNodeStatesChan)
+
 	return currOptimizationInputJSON;
 }
 
@@ -109,18 +113,30 @@ func runOptimizer(currOptimizationInputJSON []byte) ([]byte){
 	return outJSON;
 }
 
+// @return: true if order was set, false if order was already set
 func setOrder(
 	buttonPress elevio.ButtonEvent,
 	hallOrders [][]bool,
 	cabOrders []bool,
-	TurnOnLightsChan chan<- elevio.ButtonEvent) {
+	TurnOnLightsChan chan<- elevio.ButtonEvent) (bool) {
+
 	if buttonPress.Button == elevio.BT_Cab {
+		// Return false if order is already set
+		if (cabOrders[buttonPress.Floor]) {
+			return false
+		}
 		cabOrders[buttonPress.Floor] = true
+	
 	} else {
+		// Return false if order is already set
+		if hallOrders[buttonPress.Floor][buttonPress.Button] {
+			return false
+		}
 		hallOrders[buttonPress.Floor][buttonPress.Button] = true;
 	}
 
 	TurnOnLightsChan <- buttonPress
+	return true;
 }
 
 func clearOrdersAtFloor(
@@ -138,7 +154,6 @@ func clearOrdersAtFloor(
 			Button: orderType,
 		}
 	}
-
 }
 
 func Assigner(
@@ -169,36 +184,46 @@ func Assigner(
 		currCabOrdersChan[floor] = false
 	}
 
+	optimize := false
 	currAllNodeStatesChan := make(map[fsm.NodeID] fsm.NodeState);
 	var currOptimizationInputJSON []byte;
 	var optimalAssignedOrders map[string] [][]bool;
-	var prevLocallyAssignedOrders [][]bool; 
+	var prevLocallyAssignedOrders [][]bool;
 
 	for {
 		select {
 			case a := <- AllNodeStatesChan:
 				currAllNodeStatesChan = a
+				optimize = true
 
 			case a := <- NewOrderChan:
-				setOrder(a, currHallOrdersChan, currCabOrdersChan, TurnOnLightsChan)
+				// Optimize if something is changed
+				if setOrder(a, currHallOrdersChan, currCabOrdersChan, TurnOnLightsChan) {
+					optimize = true
+				}
 
 			case a := <- CompletedOrderChan:
 				clearOrdersAtFloor(a, currHallOrdersChan, currCabOrdersChan, TurnOffLightsChan)
+				optimize = true
 		}
 
-		// Calculate new optimalAssignedOrders time a message is received
-		currOptimizationInputJSON = encodeJSON(currHallOrdersChan, currCabOrdersChan, currAllNodeStatesChan);
-		outJSON := runOptimizer(currOptimizationInputJSON);
-		json.Unmarshal(outJSON, &optimalAssignedOrders);
+		if optimize {
+			// Calculate new optimalAssignedOrders time a message is received
+			currOptimizationInputJSON = encodeJSON(currHallOrdersChan, currCabOrdersChan, currAllNodeStatesChan);
+			outJSON := runOptimizer(currOptimizationInputJSON);
+			json.Unmarshal(outJSON, &optimalAssignedOrders);
 
-		currLocallyAssignedOrders := optimalAssignedOrders[string(localID)]
+			currLocallyAssignedOrders := optimalAssignedOrders[string(localID)]
 
-		// No changes, don't send updated orders
-		if reflect.DeepEqual(currLocallyAssignedOrders, prevLocallyAssignedOrders) {
-			continue;
+			// No changes, don't send updated orders
+			if reflect.DeepEqual(currLocallyAssignedOrders, prevLocallyAssignedOrders) {
+				continue;
+			}
+
+			LocallyAssignedOrdersChan <- currLocallyAssignedOrders
+			prevLocallyAssignedOrders = currLocallyAssignedOrders
+			
+			optimize = false
 		}
-
-		LocallyAssignedOrdersChan <- currLocallyAssignedOrders
-		prevLocallyAssignedOrders = currLocallyAssignedOrders
 	}
 }

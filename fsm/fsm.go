@@ -9,7 +9,6 @@ import (
 // StateMachineChannels ...
 // Channels used for communication with the Elevator FSM
 type StateMachineChannels struct {
-	NewOrderChan chan elevio.ButtonEvent
 	ArrivedAtFloorChan chan int 
 }
 
@@ -161,7 +160,6 @@ func transmitState(
 func StateMachine(
 	localID NodeID,
 	numFloors int,
-	NewOrderChan <-chan elevio.ButtonEvent,
 	ArrivedAtFloorChan <-chan int,
 	HallOrderChan chan<- [][] bool,
 	CabOrderChan chan<- [] bool,
@@ -228,19 +226,18 @@ func StateMachine(
 		case a := <- ArrivedAtFloorChan:
 			currFloor = a;
 
-			// Transmit state each when reached new floor
-			transmitState(localID, state, currFloor, currDir, LocalNodeStateChan)
-
 			if state == InitState {
 				nextState = IdleState
 			}
 
 			if currFloor == currOrder {
 				CompletedOrderChan <- currFloor
-				//transmitHallOrdersChan(assignedOrders, HallOrderChan)
-				//transmitCabOrdersChan(assignedOrders, CabOrderChan)
 				nextState = DoorOpenState
+				break;
 			}
+
+			// Transmit state each when reached new floor without stopping
+			transmitState(localID, state, currFloor, currDir, LocalNodeStateChan)
 		}
 
 
@@ -284,3 +281,4 @@ func StateMachine(
 	}
 }
 
+// TODO Direction is set the wrong way, fix this!

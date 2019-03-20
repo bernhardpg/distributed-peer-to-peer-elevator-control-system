@@ -27,7 +27,7 @@ func main() {
 	optimalOrderAssignerChns := optimalOrderAssigner.OptimalOrderAssignerChannels {
 		HallOrdersChan: make(chan [][] bool),
 		CabOrdersChan: make(chan [] bool),
-		NewOrderChan: make(chan elevio.ButtonEvent),  // TODO move to consensus module
+		NewOrderChan: make(chan elevio.ButtonEvent), // TODO move to consensus module
 		CompletedOrderChan: make(chan int),
 		LocallyAssignedOrdersChan: make(chan [][] bool, 2),
 		// Needs a buffer size bigger than one because the optimalOrderAssigner might send on this channel multiple times before FSM manages to receive!
@@ -50,7 +50,7 @@ func main() {
 
 	go fsm.StateMachine(
 		localID, numFloors,
-		optimalOrderAssignerChns.NewOrderChan, fsmChns.ArrivedAtFloorChan,
+		fsmChns.ArrivedAtFloorChan,
 		optimalOrderAssignerChns.HallOrdersChan, optimalOrderAssignerChns.CabOrdersChan, optimalOrderAssignerChns.LocallyAssignedOrdersChan, optimalOrderAssignerChns.CompletedOrderChan,
 		nodeStatesHandlerChns.LocalNodeStateChan)
 
@@ -73,5 +73,7 @@ func main() {
 
 	fmt.Println("(main) Started all modules");
 
-	for {};
+	for {
+		select {}
+	}
 }
