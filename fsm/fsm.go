@@ -4,7 +4,6 @@ import (
 	"../elevio"
 	"time"
 	"fmt"
-	"reflect"
 )
 
 // StateMachineChannels ...
@@ -217,11 +216,6 @@ func StateMachine(
 			}
 
 		case a := <- LocallyAssignedOrdersChan:
-			// Break if no changes!
-			if reflect.DeepEqual(a, assignedOrders) {
-				break;
-			}
-
 			assignedOrders = a
 
 			if hasOrders(assignedOrders) && state != DoorOpenState {

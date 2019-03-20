@@ -4,7 +4,7 @@ import (
 	"./fsm"
 	"./elevio"
 	"./iolights"
-	"./optimalAssigner"
+	"./optimalOrderAssigner"
 	"./nodeStatesHandler"
 	"fmt"
 )
@@ -24,19 +24,18 @@ func main() {
 		TurnOffLightsChan: make(chan elevio.ButtonEvent),
 		FloorIndicatorChan: make(chan int),
 	}
-	optimalAssignerChns := optimalAssigner.OptimalAssignerChannels {
+	optimalOrderAssignerChns := optimalOrderAssigner.OptimalOrderAssignerChannels {
 		HallOrdersChan: make(chan [][] bool),
 		CabOrdersChan: make(chan [] bool),
 		NewOrderChan: make(chan elevio.ButtonEvent),  // TODO move to consensus module
 		CompletedOrderChan: make(chan int),
 		LocallyAssignedOrdersChan: make(chan [][] bool, 2),
-		// Needs a buffer size bigger than one because the optimalAssigner might send on this channel multiple times before FSM manages to receive!
+		// Needs a buffer size bigger than one because the optimalOrderAssigner might send on this channel multiple times before FSM manages to receive!
 	}
 	nodeStatesHandlerChns := nodeStatesHandler.NodeStatesHandlerChannels {
 		LocalNodeStateChan: make(chan fsm.NodeState),
 		RemoteNodeStatesChan: make(chan fsm.NodeState),
-		AllNodeStatesChan: make(chan map[fsm.NodeID] fsm.NodeState, 2),
-		// TODO: does allNodeStates need a buffer bigger than 1?
+		AllNodeStatesChan: make(chan map[fsm.NodeID] fsm.NodeState),
 	}
 
 
@@ -46,13 +45,13 @@ func main() {
 	// -----
 	go elevio.IOReader(
 		numFloors,
-		optimalAssignerChns.NewOrderChan, fsmChns.ArrivedAtFloorChan,
+		optimalOrderAssignerChns.NewOrderChan, fsmChns.ArrivedAtFloorChan,
 		iolightsChns.FloorIndicatorChan)
 
 	go fsm.StateMachine(
 		localID, numFloors,
-		optimalAssignerChns.NewOrderChan, fsmChns.ArrivedAtFloorChan,
-		optimalAssignerChns.HallOrdersChan, optimalAssignerChns.CabOrdersChan, optimalAssignerChns.LocallyAssignedOrdersChan, optimalAssignerChns.CompletedOrderChan,
+		optimalOrderAssignerChns.NewOrderChan, fsmChns.ArrivedAtFloorChan,
+		optimalOrderAssignerChns.HallOrdersChan, optimalOrderAssignerChns.CabOrdersChan, optimalOrderAssignerChns.LocallyAssignedOrdersChan, optimalOrderAssignerChns.CompletedOrderChan,
 		nodeStatesHandlerChns.LocalNodeStateChan)
 
 	go iolights.LightHandler(
@@ -64,11 +63,11 @@ func main() {
 		nodeStatesHandlerChns.LocalNodeStateChan, nodeStatesHandlerChns.RemoteNodeStatesChan,
 		nodeStatesHandlerChns.AllNodeStatesChan)
 
-	go optimalAssigner.Assigner(
+	go optimalOrderAssigner.Assigner(
 		localID, numFloors,
-		optimalAssignerChns.HallOrdersChan, optimalAssignerChns.CabOrdersChan,
-		optimalAssignerChns.LocallyAssignedOrdersChan, optimalAssignerChns.NewOrderChan,
-		optimalAssignerChns.CompletedOrderChan,
+		optimalOrderAssignerChns.HallOrdersChan, optimalOrderAssignerChns.CabOrdersChan,
+		optimalOrderAssignerChns.LocallyAssignedOrdersChan, optimalOrderAssignerChns.NewOrderChan,
+		optimalOrderAssignerChns.CompletedOrderChan,
 		nodeStatesHandlerChns.AllNodeStatesChan,
 		iolightsChns.TurnOffLightsChan, iolightsChns.TurnOnLightsChan)
 
