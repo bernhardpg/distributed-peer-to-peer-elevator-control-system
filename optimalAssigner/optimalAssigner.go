@@ -7,8 +7,6 @@ import (
 	"encoding/json"
 	"../stateHandler"
 	"../elevio"
-	"fmt"
-	//"reflect"
 )
 
 type OptimalAssignerChannels struct {
@@ -90,7 +88,6 @@ func runOptimizer(currOptimizationInputJson []byte) ([]byte){
 }
 
 func setOrder(buttonPress elevio.ButtonEvent, hallOrders [][]bool, cabOrders []bool) {
-	fmt.Println("Setting order in local order matrix!")
 	if buttonPress.Button == elevio.BT_Cab {
 		cabOrders[buttonPress.Floor] = true
 	} else {
@@ -138,20 +135,9 @@ func Assigner(localID stateHandler.NodeID, numFloors int,
 
 	for {
 		select {
-			/*case a := <- HallOrdersChan:
-				currHallOrders = a;
-				calcOptimalFlag = true;
-			case a := <- CabOrdersChan:
-				currCabOrders = a;
-				calcOptimalFlag = true;*/
-
 			case a := <- AllElevStatesChan:
-				fmt.Println("OptimalAssigner: received allElevStates!")
 				currAllElevStates = a
 				calcOptimalFlag = true
-				//fmt.Println("Updating state!:")
-				//fmt.Println(currAllElevStates)
-				//fmt.Println(a)
 
 			case a := <- NewOrderChan:
 				setOrder(a, currHallOrders, currCabOrders)
@@ -159,7 +145,6 @@ func Assigner(localID stateHandler.NodeID, numFloors int,
 
 			case a := <- CompletedOrderChan:
 				clearOrdersAtFloor(a, currHallOrders, currCabOrders)
-				fmt.Println("optimalAssigner: Cleared orders at floor")
 				calcOptimalFlag = true
 		}
 
@@ -167,13 +152,8 @@ func Assigner(localID stateHandler.NodeID, numFloors int,
 			currOptimizationInputJson = encodeJson(currHallOrders, currCabOrders, currAllElevStates);
 			outJson := runOptimizer(currOptimizationInputJson);
 			json.Unmarshal(outJson, &optimalAssignedOrders);
-			//fmt.Println(optimalAssignedOrders[string(localID)]);
-
-			fmt.Println("OptimalAssigner: Sending new locally assigned orders to fsm")
 			LocallyAssignedOrdersChan <- optimalAssignedOrders[string(localID)]
-			fmt.Println("OptimalAssigner: Sent new locally assigned orders")
 			calcOptimalFlag = false;
-
 			// TODO why does it send two times?
 		}
 	}

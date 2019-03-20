@@ -118,7 +118,18 @@ func setOrder(buttonPress elevio.ButtonEvent, assignedOrders [][]bool, TurnOnLig
 	TurnOnLights <- buttonPress;
 }
 
-// StateHandler ...
+func transmitState(localID stateHandler.NodeID, currState stateHandler.BehaviourState, currFloor int, currDir stateHandler.OrderDir, LocalElevStateChan chan<- stateHandler.ElevState) {
+	currElevState := stateHandler.ElevState {
+		ID: localID,
+		State: currState,
+		Floor: currFloor,
+		Dir: currDir, 
+	}
+
+	LocalElevStateChan <- currElevState
+}
+
+// StateMachine ...
 // GoRoutine for handling the states of a single elevator
 func StateMachine(localID stateHandler.NodeID, numFloors int,
 	NewOrder <-chan elevio.ButtonEvent,
@@ -150,11 +161,6 @@ func StateMachine(localID stateHandler.NodeID, numFloors int,
 		}
 	}
 
-	// Transmit empty order matrices
-	//transmitHallOrders(assignedOrders, HallOrderChan);
-	//transmitCabOrders(assignedOrders, CabOrderChan);
-
-
 	// Initialize elevator
 	// -----
 	state := stateHandler.InitState
@@ -170,7 +176,6 @@ func StateMachine(localID stateHandler.NodeID, numFloors int,
 		select {
 		
 		case <- doorTimer.C:
-			fmt.Println("Shutting door!")
 			// Door has been open for the desired period of time
 			if state != stateHandler.InitState {
 				elevio.SetDoorOpenLamp(false)
@@ -183,14 +188,11 @@ func StateMachine(localID stateHandler.NodeID, numFloors int,
 
 		case a := <- LocallyAssignedOrdersChan:
 			// Break if no changes!
-			fmt.Println("FSM: Received locally assigned orders")
 			if reflect.DeepEqual(a, assignedOrders) {
-				fmt.Println("FSM: No changes in orders: break!")
 				break;
 			}
 
 			assignedOrders = a
-			fmt.Println("FSM: Printing NEW assigned orders: ", assignedOrders)
 
 			if hasOrders(assignedOrders) && state != stateHandler.DoorOpen {
 				// Calculate new order
@@ -201,7 +203,6 @@ func StateMachine(localID stateHandler.NodeID, numFloors int,
 
 		case a := <- ArrivedAtFloor:
 			currFloor = a;
-			fmt.Println("Fsm: Arrived at floor: ", currFloor)
 
 			// Transmit state each when reached new floor
 			transmitState(localID, state, currFloor, currDir, LocalElevStateChan)
@@ -211,31 +212,11 @@ func StateMachine(localID stateHandler.NodeID, numFloors int,
 			}
 
 			if currFloor == currOrder {
-				fmt.Println("Fsm: Stopping at floor: ", currFloor)
 				CompletedOrderChan <- currFloor
 				//transmitHallOrders(assignedOrders, HallOrderChan)
 				//transmitCabOrders(assignedOrders, CabOrderChan)
 				nextState = stateHandler.DoorOpen
 			}
-
-		/*case a := <- NewOrder:
-			// TODO to be replaced with channel input from optimal assigner
-			
-			// Only open door if already on floor (and not stateHandler.Moving)
-			if a.Floor == currFloor && state != stateHandler.Moving {
-				// Open door without calculating new order
-				nextState = stateHandler.DoorOpen
-			} else {
-				setOrder(a, assignedOrders, TurnOnLights);
-				transmitHallOrders(assignedOrders, HallOrderChan);
-				transmitCabOrders(assignedOrders, CabOrderChan);
-				if state != stateHandler.DoorOpen {
-					// Calculate new order
-					nextState = stateHandler.Moving
-					// Change state from moving to moving
-					updateState = true
-				}
-			}*/
 		}
 
 
@@ -246,24 +227,18 @@ func StateMachine(localID stateHandler.NodeID, numFloors int,
 			state = nextState
 			switch state {
 				case stateHandler.DoorOpen:
-					fmt.Println("Fsm: Door open, starting timer!")
 					elevio.SetMotorDirection(elevio.MD_Stop)
 					elevio.SetDoorOpenLamp(true)
 					doorTimer.Reset(doorOpenTime)
 
 				case stateHandler.Idle:
-					fmt.Println("Fsm: Changed state to idle!")
 					elevio.SetMotorDirection(elevio.MD_Stop)
 
 				case stateHandler.Moving:
-					fmt.Println("Fsm: Changing state to moving!")
-					fmt.Println("...: currOrder: ", currOrder, " currFloor: ", currFloor)
-
 					currOrder = calculateNextOrder(currFloor, currDir, assignedOrders)
 
 					// Already at desired floor
 					if currOrder == currFloor {
-						fmt.Println("Fsm: Already at floor! Open doors again!")
 						CompletedOrderChan <- currFloor
 						nextState = stateHandler.DoorOpen
 						break
@@ -285,40 +260,3 @@ func StateMachine(localID stateHandler.NodeID, numFloors int,
 	}
 }
 
-
-func transmitState(localID stateHandler.NodeID, currState stateHandler.BehaviourState, currFloor int, currDir stateHandler.OrderDir, LocalElevStateChan chan<- stateHandler.ElevState) {
-	currElevState := stateHandler.ElevState {
-		ID: localID,
-		State: currState,
-		Floor: currFloor,
-		Dir: currDir, 
-	}
-
-	fmt.Println("fsm: Transmitting state: ", currElevState)
-	LocalElevStateChan <- currElevState
-}
-
-func transmitCabOrders(assignedOrders [][] bool, CabOrderChan chan<- []bool) {
-	// Construct hall order matrix
-	numFloors := len(assignedOrders);
-	cabOrders := make([]bool, numFloors);
-
-	for i := range assignedOrders {
-		cabOrders[i] = assignedOrders[i][elevio.BT_Cab];
-	}
-
-	CabOrderChan <- cabOrders;
-}
-
-
-func transmitHallOrders(assignedOrders [][] bool, HallOrderChan chan<- [][]bool) {
-	// Construct hall order matrix
-	numFloors := len(assignedOrders);
-	hallOrders := make([][]bool, numFloors);
-
-	for i := range assignedOrders {
-		hallOrders[i] = assignedOrders[i][:elevio.BT_Cab];
-	}
-
-	HallOrderChan <- hallOrders;
-}

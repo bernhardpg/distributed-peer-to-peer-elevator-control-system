@@ -49,10 +49,7 @@ func StateHandler(localID NodeID, LocalElevStateChan <-chan ElevState, RemoteEle
 		case a := <-LocalElevStateChan:
 			allElevStates[localID] = a
 //			LocalStateToNetwork <- allElevStates[localID]
-			fmt.Println("Statehandler: received local state!")
-			fmt.Println("StateHandler: sending allStates to optimAss")
 			AllElevStatesChan <- allElevStates
-			fmt.Println("StateHandler: sent allStates")
 
 		case a := <-RemoteElevStateChan:
 			allElevStates[a.ID] = a
