@@ -2,14 +2,14 @@
 - Change all chans into <- in parameters
 - What to do with semicolon?
 - Remember to fix issues with Peerlist and allNodeStates! Peers not on network needs to be removed by nodeStatesHandler!
-- fix problem where elev times out
 - Make Golint happy
 - Rename all channels structs as Channels
 - Everything crashes when starting elevator outside boundaries
 - Comment all code
-- Test spamming while initting
 
 ### DONE
+- Test spamming while initting
+- fix problem where elev times out
 - Change elevState to elevBehaviour or something
 - Change name of statehandler to NodeStatesHandler or something
 - Move state datatypes to FSM?
