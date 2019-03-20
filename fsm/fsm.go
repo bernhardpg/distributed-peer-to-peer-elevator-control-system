@@ -210,17 +210,17 @@ func StateMachine(
 	// -----
 	behaviour := InitState
 	nextBehaviour := behaviour
+	// Note: Elevator will be able to accept orders while initializing
+
 
 	// Used to transition to states when no channel action
 	// or when transitioning from a state to the same state
 	updateState := false;
-	
+
 	// Close doors and move elevator to first floor in direction Up 
 	elevio.SetDoorOpenLamp(false)
 	elevio.SetMotorDirection(elevio.MD_Up)
 	
-	fmt.Println("(fsm) Done initing");
-
 	// State selector
 	// -----
 	for {
@@ -272,6 +272,7 @@ func StateMachine(
 			// Finish init sequence
 			if behaviour == InitState {
 				nextBehaviour = IdleState
+				fmt.Println("(fsm) Init complete");
 			}
 
 			// Open doors at desired floor			

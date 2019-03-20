@@ -202,7 +202,8 @@ func Assigner(
 			default:
 		}
 
-		if optimize {
+		// Calculate optimal AssignedLocalOrders when new data has arrived and states have been initialized 
+		if optimize && len(currAllNodeStatesChan) != 0 {
 			optimize = false
 
 			// Calculate new optimalAssignedOrders time a message is received
