@@ -7,9 +7,9 @@ import (
 // LightsChannel ...
 // Channels used for communication with the Elevator LightHandler
 type LightsChannels struct {
-	TurnOffLights chan elevio.ButtonEvent
-	TurnOnLights chan elevio.ButtonEvent
-	FloorIndicator chan int
+	TurnOffLightsChan chan elevio.ButtonEvent
+	TurnOnLightsChan chan elevio.ButtonEvent
+	FloorIndicatorChan chan int
 }
 
 // LightHandler ...

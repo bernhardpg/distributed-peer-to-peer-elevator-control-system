@@ -10,11 +10,11 @@ import (
 )
 
 type OptimalAssignerChannels struct {
-	HallOrders chan [][] bool
-	CabOrders chan [] bool
-	NewOrder chan elevio.ButtonEvent // TODO move to consensus module
-	LocallyAssignedOrders chan [][] bool
-	CompletedOrder chan int
+	HallOrdersChan chan [][] bool
+	CabOrdersChan chan [] bool
+	NewOrderChan chan elevio.ButtonEvent // TODO move to consensus module
+	LocallyAssignedOrdersChan chan [][] bool
+	CompletedOrderChan chan int
 }
 
 type singleElevStateJson struct {
@@ -32,12 +32,12 @@ type optimizationInputJson struct {
 
 // Encodes the data for HallRequstAssigner script, according to
 // Format required
-func encodeJson(currHallOrders [][]bool,
-	currCabOrders []bool, currAllElevStates map[stateHandler.NodeID] stateHandler.ElevState)([]byte) {
+func encodeJson(currHallOrdersChan [][]bool,
+	currCabOrdersChan []bool, currAllElevStatesChan map[stateHandler.NodeID] stateHandler.ElevState)([]byte) {
 
 	currStates := make(map[string] singleElevStateJson);
 
-	for currID, currElevState := range currAllElevStates {
+	for currID, currElevState := range currAllElevStatesChan {
 		// TODO these need to not be hardcoded!
 		currBehaviour := "idle";
 		currDirection := "up";
@@ -48,12 +48,12 @@ func encodeJson(currHallOrders [][]bool,
 			Behaviour: currBehaviour,
 			Floor: currElevState.Floor,
 			Direction: currDirection,
-			CabRequests: currCabOrders,
+			CabRequests: currCabOrdersChan,
 		}
 	}
 
 	currOptimizationInput := optimizationInputJson {
-		HallRequests: currHallOrders,
+		HallRequests: currHallOrdersChan,
 		States: currStates,
 	}
 
@@ -104,55 +104,55 @@ func clearOrdersAtFloor(floor int, hallOrders [][]bool, cabOrders []bool) {
 }
 
 func Assigner(localID stateHandler.NodeID, numFloors int,
-	HallOrdersChan <-chan [][] bool,
-	CabOrdersChan <-chan [] bool,
-	LocallyAssignedOrdersChan chan<- [][]bool,
-	NewOrderChan <-chan elevio.ButtonEvent,
-	CompletedOrderChan <-chan int,
-	AllElevStatesChan <-chan map[stateHandler.NodeID] stateHandler.ElevState) { 
+	HallOrdersChanChan <-chan [][] bool,
+	CabOrdersChanChan <-chan [] bool,
+	LocallyAssignedOrdersChanChan chan<- [][]bool,
+	NewOrderChanChan <-chan elevio.ButtonEvent,
+	CompletedOrderChanChan <-chan int,
+	AllElevStatesChanChan <-chan map[stateHandler.NodeID] stateHandler.ElevState) { 
 
 
 	// Initialize empty matrices
 	//-------
-	currHallOrders := make([][] bool, numFloors); 
-	currCabOrders := make([] bool, numFloors);
+	currHallOrdersChan := make([][] bool, numFloors); 
+	currCabOrdersChan := make([] bool, numFloors);
 
-	for floor := range currHallOrders {
-		currHallOrders[floor] = make([] bool, 2)
+	for floor := range currHallOrdersChan {
+		currHallOrdersChan[floor] = make([] bool, 2)
 	}
 
-	for floor := range currHallOrders {
-		for orderType := range currHallOrders[floor] {
-			currHallOrders[floor][orderType] = false
+	for floor := range currHallOrdersChan {
+		for orderType := range currHallOrdersChan[floor] {
+			currHallOrdersChan[floor][orderType] = false
 		}
-		currCabOrders[floor] = false
+		currCabOrdersChan[floor] = false
 	}
 
-	currAllElevStates := make(map[stateHandler.NodeID] stateHandler.ElevState);
+	currAllElevStatesChan := make(map[stateHandler.NodeID] stateHandler.ElevState);
 	var currOptimizationInputJson []byte;
 	var optimalAssignedOrders map[string] [][]bool;
 	calcOptimalFlag := false;
 
 	for {
 		select {
-			case a := <- AllElevStatesChan:
-				currAllElevStates = a
+			case a := <- AllElevStatesChanChan:
+				currAllElevStatesChan = a
 				calcOptimalFlag = true
 
-			case a := <- NewOrderChan:
-				setOrder(a, currHallOrders, currCabOrders)
+			case a := <- NewOrderChanChan:
+				setOrder(a, currHallOrdersChan, currCabOrdersChan)
 				calcOptimalFlag = true
 
-			case a := <- CompletedOrderChan:
-				clearOrdersAtFloor(a, currHallOrders, currCabOrders)
+			case a := <- CompletedOrderChanChan:
+				clearOrdersAtFloor(a, currHallOrdersChan, currCabOrdersChan)
 				calcOptimalFlag = true
 		}
 
 		if calcOptimalFlag {
-			currOptimizationInputJson = encodeJson(currHallOrders, currCabOrders, currAllElevStates);
+			currOptimizationInputJson = encodeJson(currHallOrdersChan, currCabOrdersChan, currAllElevStatesChan);
 			outJson := runOptimizer(currOptimizationInputJson);
 			json.Unmarshal(outJson, &optimalAssignedOrders);
-			LocallyAssignedOrdersChan <- optimalAssignedOrders[string(localID)]
+			LocallyAssignedOrdersChanChan <- optimalAssignedOrders[string(localID)]
 			calcOptimalFlag = false;
 			// TODO why does it send two times?
 		}

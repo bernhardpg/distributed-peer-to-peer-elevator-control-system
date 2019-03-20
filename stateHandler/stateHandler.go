@@ -5,9 +5,9 @@ import ("fmt"
 )
 
 type StateHandlerChannels struct {
-	LocalElevState chan ElevState
-	RemoteElevState chan ElevState
-	AllElevStates chan map[NodeID] ElevState
+	LocalElevStateChan chan ElevState
+	RemoteElevStateChan chan ElevState
+	AllElevStatesChan chan map[NodeID] ElevState
 }
 
 type BehaviourState int;
@@ -34,8 +34,8 @@ type ElevState struct {
 // TODO move to network module!
 type NodeID int;
 
-func StateHandler(localID NodeID, LocalElevStateChan <-chan ElevState, RemoteElevStateChan <-chan ElevState, 
-	AllElevStatesChan chan<- map[NodeID]ElevState) {
+func StateHandler(localID NodeID, LocalElevStateChanChan <-chan ElevState, RemoteElevStateChanChan <-chan ElevState, 
+	AllElevStatesChanChan chan<- map[NodeID]ElevState) {
 
 //	LocalStateToNetwork := make(chan ElevState)
 
@@ -46,14 +46,14 @@ func StateHandler(localID NodeID, LocalElevStateChan <-chan ElevState, RemoteEle
 	for {
 		select {
 
-		case a := <-LocalElevStateChan:
+		case a := <-LocalElevStateChanChan:
 			allElevStates[localID] = a
 //			LocalStateToNetwork <- allElevStates[localID]
-			AllElevStatesChan <- allElevStates
+			AllElevStatesChanChan <- allElevStates
 
-		case a := <-RemoteElevStateChan:
+		case a := <-RemoteElevStateChanChan:
 			allElevStates[a.ID] = a
-			AllElevStatesChan <- allElevStates
+			AllElevStatesChanChan <- allElevStates
 
 			fmt.Println(a)
 		}

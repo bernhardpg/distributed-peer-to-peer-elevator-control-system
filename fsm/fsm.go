@@ -11,8 +11,8 @@ import (
 // StateMachineChannels ...
 // Channels used for communication with the Elevator FSM
 type StateMachineChannels struct {
-	NewOrder chan elevio.ButtonEvent
-	ArrivedAtFloor chan int 
+	NewOrderChan chan elevio.ButtonEvent
+	ArrivedAtFloorChan chan int 
 }
 
 /*// TODO move these data types to correct file!
@@ -113,12 +113,12 @@ func calculateDirection(currFloor int, currOrder int) (stateHandler.OrderDir) {
 	return stateHandler.Down;
 }
 
-func setOrder(buttonPress elevio.ButtonEvent, assignedOrders [][]bool, TurnOnLights chan<- elevio.ButtonEvent) {
+func setOrder(buttonPress elevio.ButtonEvent, assignedOrders [][]bool, TurnOnLightsChanChan chan<- elevio.ButtonEvent) {
 	assignedOrders[buttonPress.Floor][buttonPress.Button] = true;
-	TurnOnLights <- buttonPress;
+	TurnOnLightsChanChan <- buttonPress;
 }
 
-func transmitState(localID stateHandler.NodeID, currState stateHandler.BehaviourState, currFloor int, currDir stateHandler.OrderDir, LocalElevStateChan chan<- stateHandler.ElevState) {
+func transmitState(localID stateHandler.NodeID, currState stateHandler.BehaviourState, currFloor int, currDir stateHandler.OrderDir, LocalElevStateChanChan chan<- stateHandler.ElevState) {
 	currElevState := stateHandler.ElevState {
 		ID: localID,
 		State: currState,
@@ -126,21 +126,21 @@ func transmitState(localID stateHandler.NodeID, currState stateHandler.Behaviour
 		Dir: currDir, 
 	}
 
-	LocalElevStateChan <- currElevState
+	LocalElevStateChanChan <- currElevState
 }
 
 // StateMachine ...
 // GoRoutine for handling the states of a single elevator
 func StateMachine(localID stateHandler.NodeID, numFloors int,
-	NewOrder <-chan elevio.ButtonEvent,
-	ArrivedAtFloor <-chan int,
-	TurnOffLights chan<- elevio.ButtonEvent,
-	TurnOnLights chan<- elevio.ButtonEvent,
+	NewOrderChanChan <-chan elevio.ButtonEvent,
+	ArrivedAtFloorChanChan <-chan int,
+	TurnOffLightsChanChan chan<- elevio.ButtonEvent,
+	TurnOnLightsChanChan chan<- elevio.ButtonEvent,
 	HallOrderChan chan<- [][] bool,
 	CabOrderChan chan<- [] bool,
-	LocallyAssignedOrdersChan <-chan [][] bool,
-	CompletedOrderChan chan<- int,
-	LocalElevStateChan chan<- stateHandler.ElevState) {
+	LocallyAssignedOrdersChanChan <-chan [][] bool,
+	CompletedOrderChanChan chan<- int,
+	LocalElevStateChanChan chan<- stateHandler.ElevState) {
 
 	// Initialize variables	
 	// -----
@@ -186,7 +186,7 @@ func StateMachine(localID stateHandler.NodeID, numFloors int,
 				}
 			}
 
-		case a := <- LocallyAssignedOrdersChan:
+		case a := <- LocallyAssignedOrdersChanChan:
 			// Break if no changes!
 			if reflect.DeepEqual(a, assignedOrders) {
 				break;
@@ -201,20 +201,20 @@ func StateMachine(localID stateHandler.NodeID, numFloors int,
 				updateState = true
 			}
 
-		case a := <- ArrivedAtFloor:
+		case a := <- ArrivedAtFloorChanChan:
 			currFloor = a;
 
 			// Transmit state each when reached new floor
-			transmitState(localID, state, currFloor, currDir, LocalElevStateChan)
+			transmitState(localID, state, currFloor, currDir, LocalElevStateChanChan)
 
 			if state == stateHandler.InitState {
 				nextState = stateHandler.Idle
 			}
 
 			if currFloor == currOrder {
-				CompletedOrderChan <- currFloor
-				//transmitHallOrders(assignedOrders, HallOrderChan)
-				//transmitCabOrders(assignedOrders, CabOrderChan)
+				CompletedOrderChanChan <- currFloor
+				//transmitHallOrdersChan(assignedOrders, HallOrderChan)
+				//transmitCabOrdersChan(assignedOrders, CabOrderChan)
 				nextState = stateHandler.DoorOpen
 			}
 		}
@@ -239,7 +239,7 @@ func StateMachine(localID stateHandler.NodeID, numFloors int,
 
 					// Already at desired floor
 					if currOrder == currFloor {
-						CompletedOrderChan <- currFloor
+						CompletedOrderChanChan <- currFloor
 						nextState = stateHandler.DoorOpen
 						break
 					}
@@ -254,7 +254,7 @@ func StateMachine(localID stateHandler.NodeID, numFloors int,
 					}
 			}
 			// Transmit state each time state is changed
-			transmitState(localID, state, currFloor, currDir, LocalElevStateChan)
+			transmitState(localID, state, currFloor, currDir, LocalElevStateChanChan)
 			updateState = false
 		}
 	}
