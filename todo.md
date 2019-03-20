@@ -3,9 +3,10 @@
 - What to do with semicolon?
 - Remember to fix issues with Peerlist and allNodeStates! Peers not on network needs to be removed by nodeStatesHandler!
 - Make Golint happy
-- Rename all channels structs as Channels
+- Rename all channels structs to Channels
 - Everything crashes when starting elevator outside boundaries
 - Comment all code
+- Better names for LocalNodeStateChan ?
 
 ### DONE
 - Test spamming while initting

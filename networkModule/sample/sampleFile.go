@@ -1,4 +1,4 @@
-package main
+package sampleFile
 
 import (
 	"./network/bcast"

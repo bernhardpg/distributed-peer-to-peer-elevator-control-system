@@ -6,6 +6,7 @@ import (
 	"./iolights"
 	"./optimalOrderAssigner"
 	"./nodeStatesHandler"
+	"./networkModule"
 	"fmt"
 )
 
@@ -37,6 +38,9 @@ func main() {
 		RemoteNodeStatesChan: make(chan fsm.NodeState),
 		AllNodeStatesChan: make(chan map[fsm.NodeID] fsm.NodeState),
 	}
+	networkModuleChns := networkModule.Channels {
+		LocalNodeStateChan: make(chan fsm.NodeState),
+	}
 
 
 	elevio.Init("localhost:15657", numFloors);
@@ -45,32 +49,45 @@ func main() {
 	// -----
 	go elevio.IOReader(
 		numFloors,
-		optimalOrderAssignerChns.NewOrderChan, fsmChns.ArrivedAtFloorChan,
+		optimalOrderAssignerChns.NewOrderChan,
+		fsmChns.ArrivedAtFloorChan,
 		iolightsChns.FloorIndicatorChan)
 
 	go fsm.StateMachine(
 		localID, numFloors,
 		fsmChns.ArrivedAtFloorChan,
-		optimalOrderAssignerChns.HallOrdersChan, optimalOrderAssignerChns.CabOrdersChan,
-		optimalOrderAssignerChns.LocallyAssignedOrdersChan, optimalOrderAssignerChns.CompletedOrderChan,
+		optimalOrderAssignerChns.HallOrdersChan,
+		optimalOrderAssignerChns.CabOrdersChan,
+		optimalOrderAssignerChns.LocallyAssignedOrdersChan,
+		optimalOrderAssignerChns.CompletedOrderChan,
 		nodeStatesHandlerChns.LocalNodeStateChan)
 
 	go iolights.LightHandler(
 		numFloors,
-		iolightsChns.TurnOffLightsChan, iolightsChns.TurnOnLightsChan, iolightsChns.FloorIndicatorChan)
+		iolightsChns.TurnOffLightsChan,
+		iolightsChns.TurnOnLightsChan,
+		iolightsChns.FloorIndicatorChan)
 
 	go nodeStatesHandler.NodeStatesHandler(
 		localID,
-		nodeStatesHandlerChns.LocalNodeStateChan, nodeStatesHandlerChns.RemoteNodeStatesChan,
-		nodeStatesHandlerChns.AllNodeStatesChan)
+		nodeStatesHandlerChns.LocalNodeStateChan,
+		nodeStatesHandlerChns.RemoteNodeStatesChan,
+		nodeStatesHandlerChns.AllNodeStatesChan,
+		networkModuleChns.LocalNodeStateChan)
 
 	go optimalOrderAssigner.Assigner(
 		localID, numFloors,
-		optimalOrderAssignerChns.HallOrdersChan, optimalOrderAssignerChns.CabOrdersChan,
-		optimalOrderAssignerChns.LocallyAssignedOrdersChan, optimalOrderAssignerChns.NewOrderChan,
+		optimalOrderAssignerChns.HallOrdersChan,
+		optimalOrderAssignerChns.CabOrdersChan,
+		optimalOrderAssignerChns.LocallyAssignedOrdersChan,
+		optimalOrderAssignerChns.NewOrderChan,
 		optimalOrderAssignerChns.CompletedOrderChan,
 		nodeStatesHandlerChns.AllNodeStatesChan,
-		iolightsChns.TurnOffLightsChan, iolightsChns.TurnOnLightsChan)
+		iolightsChns.TurnOffLightsChan,
+		iolightsChns.TurnOnLightsChan)
+
+	go networkModule.Module(
+		networkModuleChns.LocalNodeStateChan)
 
 	fmt.Println("(main) Started all modules");
 

@@ -11,11 +11,13 @@ type NodeStatesHandlerChannels struct {
 	AllNodeStatesChan chan map[fsm.NodeID]fsm.NodeState
 }
 
-func NodeStatesHandler(localID fsm.NodeID, LocalNodeStateChan <-chan fsm.NodeState, RemoteNodeStatesChan <-chan fsm.NodeState, 
-	AllNodeStatesChan chan<- map[fsm.NodeID]fsm.NodeState) {
-
-//	LocalStateToNetwork := make(chan NodeState)
-
+func NodeStatesHandler(
+	localID fsm.NodeID,
+	LocalNodeStateFsmChan <-chan fsm.NodeState,
+	RemoteNodeStatesChan <-chan fsm.NodeState, 
+	AllNodeStatesChan chan<- map[fsm.NodeID]fsm.NodeState,
+	BroadcastLocalNodeStateChan chan<- fsm.NodeState) {
+	
 	var allNodeStates = make(map[fsm.NodeID]fsm.NodeState)
 
 	// TODO remove lost peers from allStates
@@ -23,9 +25,10 @@ func NodeStatesHandler(localID fsm.NodeID, LocalNodeStateChan <-chan fsm.NodeSta
 	for {
 		select {
 
-		case a := <-LocalNodeStateChan:
+		case a := <-LocalNodeStateFsmChan:
 			allNodeStates[localID] = a
-//			LocalStateToNetwork <- allNodeStates[localID]
+
+			BroadcastLocalNodeStateChan <- allNodeStates[localID]
 			AllNodeStatesChan <- allNodeStates
 
 		case a := <-RemoteNodeStatesChan:
