@@ -27,12 +27,13 @@ func main() {
 		CabOrders: make(chan [] bool),
 		NewOrder: make(chan elevio.ButtonEvent),  // TODO move to consensus module
 		CompletedOrder: make(chan int),
-		LocallyAssignedOrders: make(chan [][] bool),
+		LocallyAssignedOrders: make(chan [][] bool, 2),
+		// Needs a buffer size bigger than one because the optimalAssigner might send on this channel multiple times before FSM manages to receive!
 	}
 	stateHandlerChns := stateHandler.StateHandlerChannels {
 		LocalElevState: make(chan stateHandler.ElevState),
 		RemoteElevState: make(chan stateHandler.ElevState),
-		AllElevStates: make(chan map[stateHandler.NodeID] stateHandler.ElevState),
+		AllElevStates: make(chan map[stateHandler.NodeID] stateHandler.ElevState, 2), // TODO: does allElevStates need a buffer bigger than 1?
 	}
 
 
