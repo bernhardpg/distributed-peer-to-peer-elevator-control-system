@@ -1,16 +1,14 @@
-package hallConsensusModule
+package hallConsensus
 
 import(
-	"../elevio"
-	"../stateHandler"
+	"../../elevio"
+	"../../stateHandler"
 	"fmt"
 	"fsm"
-	"./requestConsensus"
+	"../requestConsensus"
 	)
 
-
-
-
+/*
 func setLocalHallOrder(localID fsm.NodeID, buttonPress elevio.ButtonEvent, locallyAssignedHallOrders [][]requestConsensus.Req) {
 	fmt.Println("Setting order in local order matrix!")
 
@@ -19,7 +17,6 @@ func setLocalHallOrder(localID fsm.NodeID, buttonPress elevio.ButtonEvent, local
 		ackBy: []fsm.NodeID{localID},
 	}
 }
-
 	// TODO set lights
 	// TODO send orders to fsm!
 
@@ -32,13 +29,26 @@ func clearOrdersAtFloor(localID fsm.NodeID, floor int, locallyAssignedHallOrders
 	locallyAssignedHallOrders[floor] = [] requestConsensus.Req {inactiveReq, inactiveReq}
 }
 
+*/
+			
+func updateConfirmedHallOrders(locallyAssignedHallOrders [][] Req, confirmedHallOrders *[][] bool){
+	for floor := range locallyAssignedHallOrders {
+		for orderReq := range locallyAssignedHallOrders[floor] {
+			if locallyAssignedHallOrders[floor][orderReq].state == Confirmed {
+				(*confirmedHallOrders)[floor][orderReq] = true
+			}else{
+				(*confirmedHallOrders)[floor][orderReq] = false
+			}
+			
+		}
+	}
 
- 
+}
 
 func OrderConsensus(localID fsm.NodeID,
 	numFloors int, 
-	NewOrderChan <-chan elevio.ButtonEvent,
-	CompletedOrderChan <-chan int, 
+	NewHallOrderChan <-chan elevio.ButtonEvent,
+	CompletedHallOrderChan <-chan int, 
 	PeersListUpdateChan <-chan [] fsm.NodeID,
 	RemoteHallOrdersChan <-chan [][] requestConsensus.Req,
 	ConfirmedHallOrdersToIOChan chan<- [][] bool,
@@ -50,39 +60,51 @@ func OrderConsensus(localID fsm.NodeID,
 	peersList := [] fsm.NodeID{}
 
 // Initialize all to unknown
-	for floor := range locallyAssignedHallOrders {
-		for orderReq := range locallyAssignedHallOrders[floor] {
 
+	for floor := range locallyAssignedHallOrders {
+		locallyAssignedHallOrders[floor] = make([] requestConsensus.Req, 2)
+
+		for orderReq := range locallyAssignedHallOrders[floor] {
+			
 			locallyAssignedHallOrders[floor][orderReq] = requestConsensus.Req {
 				state: Unknown,
 				ackBy: nil,
 			}
-			
+
 			confirmedHallOrders[floor] = [] bool{false, false}
 		}
 	}
-	fmt.Println("hallConsensusModule initialized")
+
+	fmt.Println("\n hallConsensusModule initialized")
 
 	for {
 
 		select{
 
-		case a := <- NewOrderChan:
-			fmt.Println("Setting order in local order matrix!")
+		case a := <- NewHallOrderChan:
 			locallyAssignedHallOrders[a.Floor][a.Button] = requestConsensus.Req {
 				state: PendingAck,
 				ackBy: []fsm.NodeID{localID},
 			}
+
+			LocalHallOrdersToNewtorkChan <- locallyAssignedHallOrders
+
 			//Update network	
 
-		case a := <- CompletedOrderChan:
+		case a := <- CompletedHallOrderChan:
 			inactiveReq := requestConsensus.Req {
 				state: Inactive, 
 				ackBy: []fsm.NodeID{localID},
 			}
+
 			locallyAssignedHallOrders[a] = [] requestConsensus.Req {inactiveReq, inactiveReq}
-			//Update optimal assigner
+
+			updateConfirmedHallOrders(locallyAssignedHallOrders, &confirmedHallOrders)
+			ConfirmedHallOrdersToIOChan <- confirmedHallOrders
+			ConfirmedHallOrdersToAssignerChan <- confirmedHallOrders
+			LocalHallOrdersToNewtorkChan <- locallyAssignedHallOrders
 			//Update IO
+			//Update optimal assigner
 			//Update network
 		
 		case a := <- PeersListUpdateChan:
@@ -99,7 +121,7 @@ func OrderConsensus(localID fsm.NodeID,
 				}
 						
 			}
-
+			LocalHallOrdersToNewtorkChan <- locallyAssignedHallOrders
 
 
 		case a := <- RemoteHallOrdersChan:
@@ -112,6 +134,11 @@ func OrderConsensus(localID fsm.NodeID,
 					pRemote := &remoteHallOrders[floor][orderReq]
 
 					requestConsensus.merge(p_local, p_remote, localID, peersList)
+
+			updateConfirmedHallOrders(locallyAssignedHallOrders, &confirmedHallOrders)
+			ConfirmedHallOrdersToIOChan <- confirmedHallOrders
+			ConfirmedHallOrdersToAssignerChan <- confirmedHallOrders
+			LocalHallOrdersToNewtorkChan <- locallyAssignedHallOrders
 
 	}
 
