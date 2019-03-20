@@ -38,11 +38,29 @@ func encodeJson(currHallOrdersChan [][]bool,
 	currStates := make(map[string] singleNodeStateJson);
 
 	for currID, currNodeState := range currAllNodeStatesChan {
-		// TODO these need to not be hardcoded!
-		currBehaviour := "idle";
-		currDirection := "up";
+		currBehaviour := "";
+		currDirection := "";
 
-		//switch NodeState.dir
+		switch(currNodeState.Behaviour) {
+
+			case fsm.IdleState, fsm.InitState:
+				currBehaviour = "idle"
+				currDirection = "stop"
+
+			case fsm.MovingState:
+				currBehaviour = "moving"
+
+				switch(currNodeState.Dir) {
+					case fsm.Up:
+						currDirection = "up"
+					case fsm.Down:
+						currDirection = "down"
+				}
+
+			case fsm.DoorOpenState:
+				currBehaviour = "doorOpen"
+				currDirection = "stop"
+		}
 
 		currStates[string(currID)] = singleNodeStateJson {
 			Behaviour: currBehaviour,
@@ -52,11 +70,11 @@ func encodeJson(currHallOrdersChan [][]bool,
 		}
 	}
 
+
 	currOptimizationInput := optimizationInputJson {
 		HallRequests: currHallOrdersChan,
 		States: currStates,
 	}
-
 
 	currOptimizationInputJson,_ := json.Marshal(currOptimizationInput);
 	return currOptimizationInputJson;
