@@ -43,11 +43,24 @@ func clearOrdersAtFloor(localID fsm.NodeID, floor int, locallyAssignedHallOrders
 	locallyAssignedHallOrders[floor] = [] Req {inactiveReq, inactiveReq}
 }
 
+func uniqueIDSlice(IDSlice []fsm.NodeID) []fsm.NodeID {
+    keys := make(map[fsm.NodeID]bool)
+    list := []fsm.NodeID{} 
+    for _, entry := range IDSlice {
+        if _, value := keys[entry]; !value {
+            keys[entry] = true
+            list = append(list, entry)
+        }
+    }    
+    return list
+}
+ 
 
 func OrderConsensus(localID fsm.NodeID,
 	numFloors int, 
 	CompletedOrderChan <-chan int, 
 	NewOrderChan <-chan elevio.ButtonEvent,
+	PeersListChan <-chan [] fsm.NodeID,
 	RemoteHallOrdersChan <-chan [][] Req,
 	ConfirmedHallOrdersToIOChan chan<- [][] bool,
 	ConfirmedHallOrdersToAssignerChan chan<- [][] bool,
@@ -55,6 +68,7 @@ func OrderConsensus(localID fsm.NodeID,
 
 	var locallyAssignedHallOrders = make([][] Req, numFloors)
 	var confirmedHallOrders = make([][] bool, numFloors)
+	peersList := [] fsm.NodeID{}
 
 // Initialize all to unknown
 	for floor := range locallyAssignedHallOrders {
@@ -68,7 +82,7 @@ func OrderConsensus(localID fsm.NodeID,
 			confirmedHallOrders[floor] = [] bool{false, false}
 		}
 	}
-
+	fmt.Println("hallConsensusModule initialized")
 
 	for {
 
@@ -84,6 +98,9 @@ func OrderConsensus(localID fsm.NodeID,
 			//Update IO
 			//Update network
 		
+		case a := <- PeersListChan:
+			peersList = a
+		
 
 		case a := <- RemoteHallOrdersChan:
 			remoteHallOrders := a
@@ -96,16 +113,57 @@ func OrderConsensus(localID fsm.NodeID,
 
 					case Inactive:
 						if (remoteHallOrders[floor][orderReq].state == PendingAck){
-							locallyAssignedHallOrders[floor][orderReq] = Req {PendingAck, append(remoteHallOrders[floor][orderReq].ackBy, localID)}
+							locallyAssignedHallOrders[floor][orderReq] = Req {
+								state: PendingAck, 
+								ackBy: uniqueIDSlice(append(remoteHallOrders[floor][orderReq].ackBy, localID)),
+							}
+						}
 
+					case PendingAck:
+						if (remoteHallOrders[floor][orderReq].state == Confirmed){
+							locallyAssignedHallOrders[floor][orderReq].state = Confirmed
+						}
+						locallyAssignedHallOrders[floor][orderReq].ackBy = uniqueIDSlice(append(remoteHallOrders[floor][orderReq].ackBy, localID))
+						
+
+
+					case Confirmed:
+						if (remoteHallOrders[floor][orderReq].state == Inactive){
+							locallyAssignedHallOrders[floor][orderReq] = Req {
+								state: Inactive,
+								ackBy: nil,
+							}
+						}else {
+							locallyAssignedHallOrders[floor][orderReq].ackBy = uniqueIDSlice(append(remoteHallOrders[floor][orderReq].ackBy, localID))
 						}
 
 
-					case PendingAck:
-
-					case Confirmed:
-
 					case Unknown:
+						switch remoteHallOrders[floor][orderReq].state {
+
+						case Inactive:
+							locallyAssignedHallOrders[floor][orderReq] = Req {
+								state: Inactive,
+								ackBy: nil,
+							}
+
+
+						case PendingAck:
+							locallyAssignedHallOrders[floor][orderReq] = Req {
+								state: PendingAck,
+								ackBy: uniqueIDSlice(append(remoteHallOrders[floor][orderReq].ackBy, localID)),
+							}
+
+
+						case Confirmed:
+							locallyAssignedHallOrders[floor][orderReq] = Req {
+								state: Confirmed,
+								ackBy: uniqueIDSlice(append(remoteHallOrders[floor][orderReq].ackBy, localID)),
+							}
+
+
+
+						}
 
 					}
 				}
