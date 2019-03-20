@@ -45,7 +45,8 @@ func Module(
 
 		case a := <- localStateRx:
 			if a.ID != localID {
-				fmt.Println("(network) Received: ", a)
+				fmt.Println("(network) Received from id: ", a.ID)
+				fmt.Println("   State: ", a.State)
 			}
 		}
 	}

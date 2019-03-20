@@ -8,12 +8,35 @@ import (
 	"./nodeStatesHandler"
 	"./network"
 	"fmt"
+	"flag"
+	"strconv"
 )
 
 
 func main() {
-	var localID network.NodeID = 1;
+	
 	numFloors := 4;
+
+	// ID Handling
+	// ------
+
+	// Pass the ID in the command line with `go run main.go -id=our_id`
+	IDptr := flag.Int("id", 1, "LocalID of the node");
+	// Pass the port number in the command line with `go run main.go -port=our_id`
+	portPtr := flag.Int("port", 15657, "Port for connecting to elevator");
+
+	flag.Parse()
+
+	localID := (network.NodeID)(*IDptr)
+	port := *portPtr
+
+	fmt.Println("(main) localID:", localID)
+	fmt.Println("(main) port:", port)
+
+	// Connect to elevator through tcp (either hardware or simulator)
+	// -----
+	elevio.Init("localhost:" + strconv.Itoa(port), numFloors);
+
 
 	// Init channels
 	// -----
@@ -40,7 +63,6 @@ func main() {
 	}
 
 
-	elevio.Init("localhost:15657", numFloors);
 
 	// Start modules
 	// -----
