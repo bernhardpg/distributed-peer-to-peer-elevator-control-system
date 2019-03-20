@@ -1,9 +1,9 @@
 package hallConsensus
 
 import(
+	"fmt"
 	"../../elevio"
 	"../../stateHandler"
-	"fmt"
 	"../../fsm"
 	"../requestConsensus"
 	)
@@ -42,18 +42,17 @@ func updateConfirmedHallOrders(locallyAssignedHallOrders [][] requestConsensus.R
 			
 		}
 	}
-
 }
 
-func OrderConsensus(localID fsm.NodeID,
+func HallOrderConsensus(localID fsm.NodeID,
 	numFloors int, 
 	NewHallOrderChan <-chan elevio.ButtonEvent,
 	CompletedHallOrderChan <-chan int, 
-	PeersListUpdateChan <-chan [] fsm.NodeID,
+	PeersListUpdateHallChan <-chan [] fsm.NodeID,
 	RemoteHallOrdersChan <-chan [][] requestConsensus.Req,
 	ConfirmedHallOrdersToIOChan chan<- [][] bool,
 	ConfirmedHallOrdersToAssignerChan chan<- [][] bool,
-	LocalHallOrdersToNewtorkChan chan<- [][] requestConsensus.Req) {
+	HallOrdersToNewtorkChan chan<- [][] requestConsensus.Req) {
 
 	var locallyAssignedHallOrders = make([][] requestConsensus.Req, numFloors)
 	var confirmedHallOrders = make([][] bool, numFloors)
@@ -87,7 +86,7 @@ func OrderConsensus(localID fsm.NodeID,
 				ackBy: []fsm.NodeID{localID},
 			}
 
-			LocalHallOrdersToNewtorkChan <- locallyAssignedHallOrders
+			HallOrdersToNewtorkChan <- locallyAssignedHallOrders
 
 			//Update network	
 
@@ -102,12 +101,12 @@ func OrderConsensus(localID fsm.NodeID,
 			updateConfirmedHallOrders(locallyAssignedHallOrders, &confirmedHallOrders)
 			ConfirmedHallOrdersToIOChan <- confirmedHallOrders
 			ConfirmedHallOrdersToAssignerChan <- confirmedHallOrders
-			LocalHallOrdersToNewtorkChan <- locallyAssignedHallOrders
+			HallOrdersToNewtorkChan <- locallyAssignedHallOrders
 			//Update IO
 			//Update optimal assigner
 			//Update network
 		
-		case a := <- PeersListUpdateChan:
+		case a := <- PeersListUpdateHallChan:
 			peersList = requestConsensus.UniqueIDSlice(a)
 
 			if len(peersList) <= 1 {
@@ -121,7 +120,7 @@ func OrderConsensus(localID fsm.NodeID,
 				}
 						
 			}
-			LocalHallOrdersToNewtorkChan <- locallyAssignedHallOrders
+			HallOrdersToNewtorkChan <- locallyAssignedHallOrders
 
 
 		case a := <- RemoteHallOrdersChan:
@@ -140,7 +139,8 @@ func OrderConsensus(localID fsm.NodeID,
 			updateConfirmedHallOrders(locallyAssignedHallOrders, &confirmedHallOrders)
 			ConfirmedHallOrdersToIOChan <- confirmedHallOrders
 			ConfirmedHallOrdersToAssignerChan <- confirmedHallOrders
-			LocalHallOrdersToNewtorkChan <- locallyAssignedHallOrders
+			HallOrdersToNewtorkChan <- locallyAssignedHallOrders
+		}
 	}
 }
-}
+
