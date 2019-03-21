@@ -23,13 +23,10 @@ func CabOrderConsensus(localID fsm.NodeID,
 	var localCabOrders = make(map[fsm.NodeID] [] requestConsensus.Req)
 	var confirmedCabOrders = make(map[fsm.NodeID] [] bool)
 
-	unknownReq := requestConsensus.Req {
-		state: Unknown,
-		ackBy: nil,
-	}
 
 	
 	localCabOrders[localID] = make([] generalConsensusModule.Req, numFloors)
+	confirmedCabOrders[localID] = make([] bool, numFloors)
 
 	for floor := range localCabOrders[localID] {
 		localCabOrders[localID][floor] = generalConsensusModule.Req {
@@ -73,24 +70,55 @@ func CabOrderConsensus(localID fsm.NodeID,
 			
 			//Assert node is in localCabOrders
 			if reqArr, ok := localCabOrders[a]; ok {
-				for request := range reqArr{
+				for orderReq := range reqArr{
 						//If previous state was Inactive, change to Unknown
-					if reqArr[request].state == Inactive{
-						localCabOrders[a][request].state = Unknown
+					if reqArr[orderReq].state == Inactive{
+						localCabOrders[a][orderReq].state = Unknown
 					}
 				}
 			}
 
+		case a := RemoteCabOrdersChan:
+			remoteCabOrders := a
 
-			
+			for remoteID, _ := range remoteCabOrders{
+				reqArr, ok := localCabOrders[remoteID]
 
+				//Add Node in local map if doesn't exist
+				if !ok{
 
+					localCabOrders[remoteID] = make([] generalConsensusModule.Req, numFloors)
+					confirmedCabOrders[remoteID] = make([] bool, numFloors)
+
+					for floor := range localCabOrders[remoteID] {
+						localCabOrders[remoteID][floor] = generalConsensusModule.Req {
+							state: Unknown,
+							ackBy: nil,
+						}
+						confirmedCabOrders[remoteID][floor] = false
+
+					}
+				}
+
+				newConfirmedOrInactiveFlag := false
+
+				for orderReq := range reqArr {
+					pLocal := &localCabOrders[remoteID][orderReq]
+					remote := remoteCabOrders[remoteID][orderReq]
+
+					newConfirmedOrInactiveFlag = generalConsensusModule.merge(pLocal, remote, localID, peersList)
+				}
+
+				    			
+    		}
+    		if newConfirmedOrInactiveFlag{
+					updateConfirmedCabOrders(localCabOrders, &confirmedCabOrders, TurnOffCabLightsChan, TurnOnCabLightChan)
+					ConfirmedCabOrdersToAssignerChan <- confirmedCabOrders
+				}
+
+			CabOrdersToNewtorkChan <- localCabOrders
+}
 
 }
 
-
-		}
-	}
-
-
-	}
+}
