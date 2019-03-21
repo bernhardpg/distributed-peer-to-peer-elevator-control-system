@@ -50,7 +50,8 @@ func containsList(primaryList [] fsm.NodeID, listFraction [] fsm.NodeID) bool {
     return true
 }
 
-func merge (pLocal *Req, remote Req, localID fsm.NodeID, peersList [] fsm.NodeID){
+func merge (pLocal *Req, remote Req, localID fsm.NodeID, peersList [] fsm.NodeID)(bool){
+	newConfirmedOrInactiveFlag := false
 
 	switch (*pLocal).state {
 
@@ -67,6 +68,7 @@ func merge (pLocal *Req, remote Req, localID fsm.NodeID, peersList [] fsm.NodeID
 
 		if remote.state == Confirmed || containsList((*pLocal).ackBy, peersList) {
 			(*pLocal).state = Confirmed
+			newConfirmedOrInactiveFlag = true
 			//Signaliser confirmed
 		}
 		
@@ -79,6 +81,8 @@ func merge (pLocal *Req, remote Req, localID fsm.NodeID, peersList [] fsm.NodeID
 				state: Inactive,
 				ackBy: nil,
 			}
+			newConfirmedOrInactiveFlag = true
+
 		}
 
 
@@ -91,6 +95,8 @@ func merge (pLocal *Req, remote Req, localID fsm.NodeID, peersList [] fsm.NodeID
 				state: Inactive,
 				ackBy: nil,
 			}
+			newConfirmedOrInactiveFlag = true
+
 
 
 		case PendingAck:
@@ -105,7 +111,11 @@ func merge (pLocal *Req, remote Req, localID fsm.NodeID, peersList [] fsm.NodeID
 				state: Confirmed,
 				ackBy: uniqueIDSlice(append(remote.ackBy, localID)),
 				//Signaliser confirmed
-			}	
+			}
+			newConfirmedOrInactiveFlag = true
+
 		}
 	}
+	
+	return newConfirmedOrInactiveFlag
 }

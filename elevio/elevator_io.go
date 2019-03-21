@@ -195,7 +195,7 @@ func toBool(a byte) bool {
 func IOReader(
 	numFloors int,
 	NewHallOrderChan chan<- ButtonEvent,
-	NewCabOrderChan chan<- ButtonEvent,
+	NewCabOrderChan chan<- int,
 	ArrivedAtFloorChan chan<- int,
 	FloorIndicatorChan chan<- int) {
 
@@ -216,7 +216,7 @@ func IOReader(
 			if (a.Button == BT_HallDown || a.Button == BT_HallUp){
 				NewHallOrderChan <- a
 			} else if a.Button == BT_Cab{
-				NewCabOrderChan <- a
+				NewCabOrderChan <- a.Floor
 			}
 
 		case a := <-drv_floors:
