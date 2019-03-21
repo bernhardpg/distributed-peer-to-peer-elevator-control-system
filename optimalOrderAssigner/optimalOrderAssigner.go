@@ -141,7 +141,6 @@ func clearOrdersAtFloor(
 	TurnOffLightsChan chan<- elevio.ButtonEvent) {
 	cabOrders[floor] = false
 	hallOrders[floor] = []bool{false, false}
-
 	// Clear all buttons
 	for orderType := elevio.BT_HallUp; orderType <= elevio.BT_Cab; orderType++ {
 		TurnOffLightsChan <- elevio.ButtonEvent {

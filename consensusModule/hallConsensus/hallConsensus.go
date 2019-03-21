@@ -5,14 +5,14 @@ import(
 	"../../elevio"
 	"../../stateHandler"
 	"../../fsm"
-	"../requestConsensus"
+	"../generalConsensusModule"
 	)
 
 /*
-func setLocalHallOrder(localID fsm.NodeID, buttonPress elevio.ButtonEvent, locallyAssignedHallOrders [][]requestConsensus.Req) {
+func setLocalHallOrder(localID fsm.NodeID, buttonPress elevio.ButtonEvent, localHallOrders [][]requestConsensus.Req) {
 	fmt.Println("Setting order in local order matrix!")
 
-	locallyAssignedHallOrders[buttonPress.Floor][buttonPress.Button] = requestConsensus.Req {
+	localHallOrders[buttonPress.Floor][buttonPress.Button] = requestConsensus.Req {
 		state: PendingAck,
 		ackBy: []fsm.NodeID{localID},
 	}
@@ -21,20 +21,20 @@ func setLocalHallOrder(localID fsm.NodeID, buttonPress elevio.ButtonEvent, local
 	// TODO send orders to fsm!
 
 
-func clearOrdersAtFloor(localID fsm.NodeID, floor int, locallyAssignedHallOrders [][] requestConsensus.Req, confirmedHallOrders [][] bool) {
+func clearOrdersAtFloor(localID fsm.NodeID, floor int, localHallOrders [][] requestConsensus.Req, confirmedHallOrders [][] bool) {
 	inactiveReq := requestConsensus.Req {
 		state: Inactive, 
 		ackBy: []fsm.NodeID{localID},
 	}
-	locallyAssignedHallOrders[floor] = [] requestConsensus.Req {inactiveReq, inactiveReq}
+	localHallOrders[floor] = [] requestConsensus.Req {inactiveReq, inactiveReq}
 }
 
 */
 			
-func updateConfirmedHallOrders(locallyAssignedHallOrders [][] requestConsensus.Req, confirmedHallOrders *[][] bool){
-	for floor := range locallyAssignedHallOrders {
-		for orderReq := range locallyAssignedHallOrders[floor] {
-			if locallyAssignedHallOrders[floor][orderReq].state == Confirmed {
+func updateConfirmedHallOrders(localHallOrders [][] requestConsensus.Req, confirmedHallOrders *[][] bool){
+	for floor := range localHallOrders {
+		for orderReq := range localHallOrders[floor] {
+			if localHallOrders[floor][orderReq].state == Confirmed {
 				(*confirmedHallOrders)[floor][orderReq] = true
 			}else{
 				(*confirmedHallOrders)[floor][orderReq] = false
@@ -50,22 +50,22 @@ func HallOrderConsensus(localID fsm.NodeID,
 	CompletedHallOrderChan <-chan int, 
 	PeersListUpdateHallChan <-chan [] fsm.NodeID,
 	RemoteHallOrdersChan <-chan [][] requestConsensus.Req,
-	ConfirmedHallOrdersToIOChan chan<- [][] bool,
+	ConfirmedHallOrders chan<- [][] bool,
 	ConfirmedHallOrdersToAssignerChan chan<- [][] bool,
 	HallOrdersToNewtorkChan chan<- [][] requestConsensus.Req) {
 
-	var locallyAssignedHallOrders = make([][] requestConsensus.Req, numFloors)
+	var localHallOrders = make([][] requestConsensus.Req, numFloors)
 	var confirmedHallOrders = make([][] bool, numFloors)
 	peersList := [] fsm.NodeID{}
 
 // Initialize all to unknown
 
-	for floor := range locallyAssignedHallOrders {
-		locallyAssignedHallOrders[floor] = make([] requestConsensus.Req, 2)
+	for floor := range localHallOrders {
+		localHallOrders[floor] = make([] requestConsensus.Req, 2)
 
-		for orderReq := range locallyAssignedHallOrders[floor] {
+		for orderReq := range localHallOrders[floor] {
 			
-			locallyAssignedHallOrders[floor][orderReq] = requestConsensus.Req {
+			localHallOrders[floor][orderReq] = requestConsensus.Req {
 				state: Unknown,
 				ackBy: nil,
 			}
@@ -81,12 +81,12 @@ func HallOrderConsensus(localID fsm.NodeID,
 		select{
 
 		case a := <- NewHallOrderChan:
-			locallyAssignedHallOrders[a.Floor][a.Button] = requestConsensus.Req {
+			localHallOrders[a.Floor][a.Button] = requestConsensus.Req {
 				state: PendingAck,
 				ackBy: []fsm.NodeID{localID},
 			}
 
-			HallOrdersToNewtorkChan <- locallyAssignedHallOrders
+			HallOrdersToNewtorkChan <- localHallOrders
 
 			//Update network	
 
@@ -96,12 +96,12 @@ func HallOrderConsensus(localID fsm.NodeID,
 				ackBy: []fsm.NodeID{localID},
 			}
 
-			locallyAssignedHallOrders[a] = [] requestConsensus.Req {inactiveReq, inactiveReq}
+			localHallOrders[a] = [] requestConsensus.Req {inactiveReq, inactiveReq}
 
-			updateConfirmedHallOrders(locallyAssignedHallOrders, &confirmedHallOrders)
+			updateConfirmedHallOrders(localHallOrders, &confirmedHallOrders)
 			ConfirmedHallOrdersToIOChan <- confirmedHallOrders
 			ConfirmedHallOrdersToAssignerChan <- confirmedHallOrders
-			HallOrdersToNewtorkChan <- locallyAssignedHallOrders
+			HallOrdersToNewtorkChan <- localHallOrders
 			//Update IO
 			//Update optimal assigner
 			//Update network
@@ -110,36 +110,36 @@ func HallOrderConsensus(localID fsm.NodeID,
 			peersList = requestConsensus.UniqueIDSlice(a)
 
 			if len(peersList) <= 1 {
-				for floor := range locallyAssignedHallOrders {
-					for orderReq := range locallyAssignedHallOrders[floor] {
+				for floor := range localHallOrders {
+					for orderReq := range localHallOrders[floor] {
 
-						if locallyAssignedHallOrders[floor][orderReq].state == Inactive{
-							locallyAssignedHallOrders[floor][orderReq].state = Unknown
+						if localHallOrders[floor][orderReq].state == Inactive{
+							localHallOrders[floor][orderReq].state = Unknown
 						}
 					}
 				}
 						
 			}
-			HallOrdersToNewtorkChan <- locallyAssignedHallOrders
+			HallOrdersToNewtorkChan <- localHallOrders
 
 
 		case a := <- RemoteHallOrdersChan:
 			remoteHallOrders := a
 
-			for floor := range locallyAssignedHallOrders {
-				for orderReq := range locallyAssignedHallOrders[floor]{
+			for floor := range localHallOrders {
+				for orderReq := range localHallOrders[floor]{
 
-					pLocal := &locallyAssignedHallOrders[floor][orderReq]
-					pRemote := &remoteHallOrders[floor][orderReq]
+					pLocal := &localHallOrders[floor][orderReq]
+					remote := remoteHallOrders[floor][orderReq]
 
-					requestConsensus.merge(pLocal, pRemote, localID, peersList)
+					requestConsensus.merge(pLocal, remote, localID, peersList)
 				}
 			}
 
-			updateConfirmedHallOrders(locallyAssignedHallOrders, &confirmedHallOrders)
+			updateConfirmedHallOrders(localHallOrders, &confirmedHallOrders)
 			ConfirmedHallOrdersToIOChan <- confirmedHallOrders
 			ConfirmedHallOrdersToAssignerChan <- confirmedHallOrders
-			HallOrdersToNewtorkChan <- locallyAssignedHallOrders
+			HallOrdersToNewtorkChan <- localHallOrders
 		}
 	}
 }

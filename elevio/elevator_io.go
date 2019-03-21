@@ -24,6 +24,7 @@ const (
 	MD_Stop                = 0
 )
 
+
 type ButtonType int
 
 const (
@@ -36,7 +37,6 @@ type ButtonEvent struct {
 	Floor  int
 	Button ButtonType
 }
-
 
 func Init(addr string, numFloors int) {
 	if _initialized {
@@ -194,7 +194,8 @@ func toBool(a byte) bool {
 // Main routine for reading io values and passing them on to corresponding channels
 func IOReader(
 	numFloors int,
-	NewOrderChan chan<- ButtonEvent,
+	NewHallOrderChan chan<- ButtonEvent,
+	NewCabOrderChan chan<- ButtonEvent,
 	ArrivedAtFloorChan chan<- int,
 	FloorIndicatorChan chan<- int) {
 
@@ -211,14 +212,19 @@ func IOReader(
 	for {
 		select {
 		case a := <-drv_buttons:
-			NewOrderChan <- a;
+
+			if (a.Button == BT_HallDown || a.Button == BT_HallUp){
+				NewHallOrderChan <- a
+			} else if a.Button == BT_Cab{
+				NewCabOrderChan <- a
+			}
 
 		case a := <-drv_floors:
-			ArrivedAtFloorChan <- a;
-			FloorIndicatorChan <- a;
+			ArrivedAtFloorChan <- a
+			FloorIndicatorChan <- a
 
 		case a := <-drv_obstr:
-			fmt.Printf("(elevio) Obstruction: %+v\n", a);
+			fmt.Printf("(elevio) Obstruction: %+v\n", a)
 
 		case a := <-drv_stop:
 			fmt.Printf("(elevio) Stop: %+v\n", a)

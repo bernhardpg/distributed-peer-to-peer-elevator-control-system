@@ -2,6 +2,7 @@ package requestConsensus
 
 import (
 	"../../fsm"
+	"../../elevio"
 )
 
 
@@ -49,31 +50,31 @@ func containsList(primaryList [] fsm.NodeID, listFraction [] fsm.NodeID) bool {
     return true
 }
 
-func merge (pLocal *Req, pRemote *Req, localID fsm.NodeID, peersList [] fsm.NodeID){
+func merge (pLocal *Req, remote Req, localID fsm.NodeID, peersList [] fsm.NodeID){
 
 	switch (*pLocal).state {
 
 	case Inactive:
-		if (*pRemote).state == PendingAck {
+		if remote.state == PendingAck {
 			*pLocal = Req {
 				state: PendingAck, 
-				ackBy: uniqueIDSlice(append((*pRemote).ackBy, localID)),
+				ackBy: uniqueIDSlice(append(remote.ackBy, localID)),
 			}
 		}
 
 	case PendingAck:
-		(*pLocal).ackBy = uniqueIDSlice(append((*pRemote).ackBy, localID))
+		(*pLocal).ackBy = uniqueIDSlice(append(remote.ackBy, localID))
 
-		if (*pRemote).state == Confirmed || containsList((*pLocal).ackBy, peersList) {
+		if remote.state == Confirmed || containsList((*pLocal).ackBy, peersList) {
 			(*pLocal).state = Confirmed
 			//Signaliser confirmed
 		}
 		
 
 	case Confirmed:
-		(*pLocal).ackBy = uniqueIDSlice(append((*pRemote).ackBy, localID))
+		(*pLocal).ackBy = uniqueIDSlice(append(remote.ackBy, localID))
 
-		if (*pRemote).state == Inactive {
+		if remote.state == Inactive {
 			*pLocal = Req {
 				state: Inactive,
 				ackBy: nil,
@@ -82,7 +83,7 @@ func merge (pLocal *Req, pRemote *Req, localID fsm.NodeID, peersList [] fsm.Node
 
 
 	case Unknown:
-		switch (*pRemote).state {
+		switch remote.state {
 
 
 		case Inactive:
@@ -95,14 +96,14 @@ func merge (pLocal *Req, pRemote *Req, localID fsm.NodeID, peersList [] fsm.Node
 		case PendingAck:
 			*pLocal = Req {
 				state: PendingAck,
-				ackBy: uniqueIDSlice(append((*pRemote).ackBy, localID)),
+				ackBy: uniqueIDSlice(append(remote.ackBy, localID)),
 			}
 
 
 		case Confirmed:
 			*pLocal = Req {
 				state: Confirmed,
-				ackBy: uniqueIDSlice(append((*pRemote).ackBy, localID)),
+				ackBy: uniqueIDSlice(append(remote.ackBy, localID)),
 				//Signaliser confirmed
 			}	
 		}
