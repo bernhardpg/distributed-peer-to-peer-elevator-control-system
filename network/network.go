@@ -31,9 +31,9 @@ func Module(
 	// Setup channels and modules for sending and receiving NodeStateMsg
 	// -----
 	localStateTx := make(chan NodeStateMsg)
-	localStateRx := make(chan NodeStateMsg)
+	remoteStateRx := make(chan NodeStateMsg, 10) // Does the buffer need to be this high?
 	go bcast.Transmitter(16569, localStateTx)
-	go bcast.Receiver(16569, localStateRx)
+	go bcast.Receiver(16569, remoteStateRx)
 
 	// Configure Peer List
 	// -----
@@ -47,6 +47,8 @@ func Module(
 	// -----
 
 	localState := fsm.NodeState {}
+	bcastPeriod := 200 * time.Millisecond
+	bcastTimer := time.NewTimer(bcastPeriod)
 
 	for {
 		select {
@@ -58,7 +60,7 @@ func Module(
 			fmt.Printf("  New:      %q\n", a.New)
 			fmt.Printf("  Lost:     %q\n", a.Lost)
 
-			// Inform NodeStatesHandler that a node is lost from the network
+			// Inform NodeStatesHandler that one ore more nodes are lost from the network
 			if len(a.Lost) != 0 {
 				for _, currIDstr := range a.Lost {
 					currID,_ := strconv.Atoi(currIDstr)
@@ -69,17 +71,23 @@ func Module(
 		// Transmit local state
 		case a := <-LocalNodeStateChan:
 			localState = a
+
+		// TODO create channel for NodeLost for consensus module
+
+		// Receive remote node states
+		case a := <- remoteStateRx:
+			// Send all (including local) remoteNodeStates to nodeStatesHandler
+			// TODO fix comment: Needs localState as well in case we drop out of network and lose ourself
+			RemoteNodeStatesChan <- a
+
+		case <-bcastTimer.C:
+			bcastTimer.Reset(bcastPeriod)
+
 			localStateTx <- NodeStateMsg {
 				ID: localID,
 				State: localState,
 			}
-
-		// Receive remote node states
-		case a := <- localStateRx:
-			// Send remoteNodeStates to nodeStatesHandler
-			if a.ID != localID {
-				RemoteNodeStatesChan <- a
-			}
+			
 		}
 	}
 }

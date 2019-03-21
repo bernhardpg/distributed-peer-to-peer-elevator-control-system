@@ -9,6 +9,7 @@
 - Better names for LocalNodeStateChan ?
 - Change all variable declarations from 'var' to i.e. 'localState := fsm.NodeState {}'
 - Change NodeID to string?
+- Multiple nodes: Cab and hall orders need to ble cleared the right way
 
 ### DONE
 - Test spamming while initting

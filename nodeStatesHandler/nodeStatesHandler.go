@@ -28,13 +28,14 @@ func NodeStatesHandler(
 
 		// Received localState from FSM
 		case a := <-LocalNodeStateFsmChan:
-			allNodeStates[localID] = a
-
+			//allNodeStates[localID] = a // TODO remove this? Will already be broadcastet from network
 			BroadcastLocalNodeStateChan <- a
-			AllNodeStatesChan <- allNodeStates
+
+			//AllNodeStatesChan <- allNodeStates // TODO remove this?
 
 		// Received remoteNodeState
 		case a := <-RemoteNodeStatesChan:
+			fmt.Println("(nodeStatesHandler) Updating node: ", a.ID, " in allNodeStates")
 			allNodeStates[a.ID] = a.State
 			AllNodeStatesChan <- allNodeStates
 
@@ -43,6 +44,7 @@ func NodeStatesHandler(
 		// Remove lost nodes from allNodeStates
 		case a := <-NodeLost:
 			delete(allNodeStates, a)
+			fmt.Println("(nodeStatesHandler) Removing node: ", a, " from network")
 			fmt.Println(allNodeStates)
 		}
 

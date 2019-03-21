@@ -56,14 +56,15 @@ func main() {
 	}
 	nodeStatesHandlerChns := nodeStatesHandler.NodeStatesHandlerChannels {
 		LocalNodeStateChan: make(chan fsm.NodeState),
-		RemoteNodeStatesChan: make(chan network.NodeStateMsg),
-		AllNodeStatesChan: make(chan map[network.NodeID] fsm.NodeState),
+		RemoteNodeStatesChan: make(chan network.NodeStateMsg, 2),
+		AllNodeStatesChan: make(chan map[network.NodeID] fsm.NodeState, 2),
 		NodeLostChan: make(chan network.NodeID),
 	}
 	networkChns := network.Channels {
 		LocalNodeStateChan: make(chan fsm.NodeState),
 	}
 
+	// TODO Double check channel buffering!
 
 
 	// Start modules

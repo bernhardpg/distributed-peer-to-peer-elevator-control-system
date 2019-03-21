@@ -36,6 +36,8 @@ func encodeJSON(
 	currCabOrders []bool,
 	currAllNodeStates map[network.NodeID] fsm.NodeState)([]byte) {
 
+	// TODO change currCabOrders to allCabOrders
+
 	currStates := make(map[string] singleNodeStateJSON);
 
 	for currID, currNodeState := range currAllNodeStates {
