@@ -26,7 +26,7 @@ func Module(
 	localID NodeID,
 	LocalNodeStateChan <-chan fsm.NodeState,
 	RemoteNodeStatesChan chan<- NodeStateMsg,
-	NodeLost chan<- NodeID) {
+	NodeLostChan chan<- NodeID) {
 
 	// Setup channels and modules for sending and receiving NodeStateMsg
 	// -----
@@ -64,7 +64,7 @@ func Module(
 			if len(a.Lost) != 0 {
 				for _, currIDstr := range a.Lost {
 					currID,_ := strconv.Atoi(currIDstr)
-					NodeLost <- NodeID(currID)
+					NodeLostChan <- NodeID(currID)
 				}
 			}
 
@@ -72,7 +72,7 @@ func Module(
 		case a := <-LocalNodeStateChan:
 			localState = a
 
-		// TODO create channel for NodeLost for consensus module
+		// TODO create channel for NodeLostChan for consensus module
 
 		// Receive remote node states
 		case a := <- remoteStateRx:

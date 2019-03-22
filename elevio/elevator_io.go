@@ -197,7 +197,8 @@ func IOReader(
 	NewHallOrderChan chan<- ButtonEvent,
 	NewCabOrderChan chan<- int,
 	ArrivedAtFloorChan chan<- int,
-	FloorIndicatorChan chan<- int) {
+	FloorIndicatorChan chan<- int,
+	NewOrderChan chan<- ButtonEvent) {
 
 	drv_buttons := make(chan ButtonEvent)
 	drv_floors := make(chan int)
@@ -212,6 +213,9 @@ func IOReader(
 	for {
 		select {
 		case a := <-drv_buttons:
+
+			// TODO remove this
+			NewOrderChan <- a
 
 			if (a.Button == BT_HallDown || a.Button == BT_HallUp){
 				NewHallOrderChan <- a

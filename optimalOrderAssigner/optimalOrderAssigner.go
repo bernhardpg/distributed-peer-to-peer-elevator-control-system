@@ -3,6 +3,7 @@ package optimalOrderAssigner
 import (
 	"../elevio"
 	"../fsm"
+	"../network"
 	"encoding/json"
 	"log"
 	"os"
@@ -71,12 +72,12 @@ func encodeJSON(
 			Behaviour:   currBehaviour,
 			Floor:       currNodeState.Floor,
 			Direction:   currDirection,
-			CabRequests: currCabOrdersChan,
+			CabRequests: currCabOrders,
 		}
 	}
 
 	currOptimizationInput := optimizationInputJSON{
-		HallRequests: currHallOrdersChan,
+		HallRequests: currHallOrders,
 		States:       currStates,
 
 	}
@@ -171,7 +172,7 @@ func Assigner(
 	LocallyAssignedOrdersChan chan<- [][]bool,
 	NewOrderChan <-chan elevio.ButtonEvent,
 	CompletedOrderChan <-chan int,
-	AllNodeStatesChan <-chan map[fsm.NodeID]fsm.NodeState) {
+	AllNodeStatesChan <-chan map[network.NodeID]fsm.NodeState) {
 
 
 	// Initialize variables

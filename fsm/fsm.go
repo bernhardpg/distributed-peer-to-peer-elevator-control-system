@@ -149,7 +149,8 @@ func StateMachine(
 	LocallyAssignedOrdersChan <-chan [][] bool,
 	CompletedHallOrderChan chan<- int,
 	CompletedCabOrderChan chan<- int,
-	LocalNodeStateChan chan<- NodeState) {
+	LocalNodeStateChan chan<- NodeState,
+	CompletedOrderChan chan<- int) {
 
 	// Initialize variables	
 	// -----
@@ -215,6 +216,7 @@ func StateMachine(
 			if behaviour == DoorOpenState && currOrder == currFloor {
 				CompletedHallOrderChan <- currFloor
 				CompletedCabOrderChan <- currFloor
+				CompletedOrderChan <- currFloor // TODO remove
 			}
 
 			// Only react to changes
@@ -244,6 +246,7 @@ func StateMachine(
 			if currFloor == currOrder {
 				CompletedHallOrderChan <- currFloor
 				CompletedCabOrderChan <- currFloor
+				CompletedOrderChan <- currFloor // TODO remove
 				nextBehaviour = DoorOpenState
 				break;
 			}
@@ -283,6 +286,7 @@ func StateMachine(
 					if currOrder == currFloor && behaviour != MovingState {
 						CompletedHallOrderChan <- currFloor
 						CompletedCabOrderChan <- currFloor
+						CompletedOrderChan <- currFloor // TODO remove
 						nextBehaviour = DoorOpenState
 						updateState = true
 						break

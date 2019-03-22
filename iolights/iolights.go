@@ -10,6 +10,10 @@ type LightsChannels struct {
 	TurnOffLightsChan chan elevio.ButtonEvent
 	TurnOnLightsChan chan elevio.ButtonEvent
 	FloorIndicatorChan chan int
+	TurnOffHallLightChan chan elevio.ButtonEvent
+	TurnOnHallLightChan chan elevio.ButtonEvent
+	TurnOffCabLightChan chan elevio.ButtonEvent
+	TurnOnCabLightChan chan elevio.ButtonEvent
 }
 
 // LightHandler ...

@@ -49,6 +49,10 @@ func main() {
 		TurnOnLightsChan: make(chan elevio.ButtonEvent),
 		TurnOffLightsChan: make(chan elevio.ButtonEvent),
 		FloorIndicatorChan: make(chan int),
+		TurnOffHallLightChan: make(chan elevio.ButtonEvent),
+		TurnOnHallLightChan: make(chan elevio.ButtonEvent),
+		TurnOffCabLightChan: make(chan elevio.ButtonEvent),
+		TurnOnCabLightChan: make(chan elevio.ButtonEvent),
 	}
 	optimalOrderAssignerChns := optimalOrderAssigner.OptimalOrderAssignerChannels {
 		NewOrderChan: make(chan elevio.ButtonEvent), // TODO move to consensus module
@@ -91,8 +95,8 @@ func main() {
 		numFloors,
 		fsmChns.ArrivedAtFloorChan,
 		optimalOrderAssignerChns.LocallyAssignedOrdersChan,
-		optimalOrderAssignerChns.CompletedHallOrderChan,
-		optimalOrderAssignerChns.CompletedCabOrderChan,
+		hallConsensusChns.CompletedOrderChan,
+		cabConsensusChns.CompletedOrderChan,
 		nodeStatesHandlerChns.LocalNodeStateChan,
 		optimalOrderAssignerChns.CompletedOrderChan)
 
