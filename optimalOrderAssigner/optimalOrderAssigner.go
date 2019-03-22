@@ -1,174 +1,182 @@
 package optimalOrderAssigner
 
 import (
-	"os/exec"
+	"../elevio"
+	"../fsm"
+	"encoding/json"
 	"log"
 	"os"
-	"encoding/json"
-	"../fsm"
-	"../elevio"
+	"os/exec"
 )
 
 type OptimalOrderAssignerChannels struct {
-	HallOrdersChan chan [][] bool
-	CabOrdersChan chan [] bool
-	NewOrderChan chan elevio.ButtonEvent // TODO move to consensus module
-	LocallyAssignedOrdersChan chan [][] bool
-	CompletedOrderChan chan int
+	HallOrdersChan            chan [][]bool
+	CabOrdersChan             chan []bool
+	NewOrderChan              chan elevio.ButtonEvent // TODO move to consensus module
+	LocallyAssignedOrdersChan chan [][]bool
+	CompletedOrderChan        chan int
 }
 
 type singleNodeStateJSON struct {
-	Behaviour string 	`json:"behaviour"`
-	Floor int 			`json:"floor"`
-	Direction string 	`json:"direction"`
-	CabRequests []bool 	`json:"cabRequests"`
+	Behaviour   string `json:"behaviour"`
+	Floor       int    `json:"floor"`
+	Direction   string `json:"direction"`
+	CabRequests []bool `json:"cabRequests"`
 }
 
 type optimizationInputJSON struct {
-	// Following format req to use HallRequestAssigner (written in D)
-	HallRequests [][]bool 					`json:"hallRequests"`
-	States map[string] singleNodeStateJSON 	`json:"states"`
+	HallRequests [][]bool                       `json:"hallRequests"`
+	States       map[string]singleNodeStateJSON `json:"states"`
 }
 
 // Encodes the data for HallRequstAssigner script, according to
-// Format required
+// format required by optimization script
 func encodeJSON(
 	currHallOrdersChan [][]bool,
 	currCabOrdersChan []bool,
-	currAllNodeStatesChan map[fsm.NodeID] fsm.NodeState)([]byte) {
+	currAllNodeStatesChan map[fsm.NodeID]fsm.NodeState) []byte {
 
-	currStates := make(map[string] singleNodeStateJSON);
+	currStates := make(map[string]singleNodeStateJSON)
 
 	for currID, currNodeState := range currAllNodeStatesChan {
-		currBehaviour := "";
-		currDirection := "";
+		currBehaviour := ""
+		currDirection := ""
 
-		switch(currNodeState.Behaviour) {
+		switch currNodeState.Behaviour {
 
-			case fsm.IdleState, fsm.InitState:
-				currBehaviour = "idle"
-				currDirection = "stop"
+		case fsm.IdleState, fsm.InitState:
+			currBehaviour = "idle"
+			currDirection = "stop"
 
-			case fsm.MovingState:
-				currBehaviour = "moving"
+		case fsm.MovingState:
+			currBehaviour = "moving"
 
-				switch(currNodeState.Dir) {
-					case fsm.Up:
-						currDirection = "up"
-					case fsm.Down:
-						currDirection = "down"
-				}
+			switch currNodeState.Dir {
+			case fsm.Up:
+				currDirection = "up"
+			case fsm.Down:
+				currDirection = "down"
+			}
 
-			case fsm.DoorOpenState:
-				currBehaviour = "doorOpen"
-				currDirection = "stop"
+		case fsm.DoorOpenState:
+			currBehaviour = "doorOpen"
+			currDirection = "stop"
 		}
 
-		currStates[string(currID)] = singleNodeStateJSON {
-			Behaviour: currBehaviour,
-			Floor: currNodeState.Floor,
-			Direction: currDirection,
+		currStates[string(currID)] = singleNodeStateJSON{
+			Behaviour:   currBehaviour,
+			Floor:       currNodeState.Floor,
+			Direction:   currDirection,
 			CabRequests: currCabOrdersChan,
 		}
 	}
 
-
-	currOptimizationInput := optimizationInputJSON {
+	currOptimizationInput := optimizationInputJSON{
 		HallRequests: currHallOrdersChan,
-		States: currStates,
+		States:       currStates,
 	}
 
-	currOptimizationInputJSON,_ := json.Marshal(currOptimizationInput);
+	currOptimizationInputJSON, _ := json.Marshal(currOptimizationInput)
 
-	return currOptimizationInputJSON;
+	return currOptimizationInputJSON
 }
 
-func runOptimizer(currOptimizationInputJSON []byte) ([]byte){
+// Runs the optimization script with the given JSON data
+// @return: JSON object with optimal distribution of orders between nodes
+func runOptimizer(currOptimizationInputJSON []byte) []byte {
+
 	// Get current working directory
-	dir, err := os.Getwd();
+	dir, err := os.Getwd()
 
 	if err != nil {
-		log.Fatal(err);
+		log.Fatal(err)
 	}
 
 	scriptName := "/optimalOrderAssigner/hall_request_assigner"
 	params := "--includeCab --clearRequestType all"
 	input := " --input '" + string(currOptimizationInputJSON) + "'"
 
-	// Run external script with json data
+	// Run external script with JSON data
 	cmd := exec.Command("sh", "-c",
-		dir + scriptName + " " + params + " " + input);
-	
-	outJSON, err := cmd.Output();
+		dir+scriptName+" "+params+" "+input)
+
+	outJSON, err := cmd.Output()
 
 	if err != nil {
-		log.Fatal(err);
+		log.Fatal(err)
 	}
 
-	return outJSON;
+	return outJSON
 }
 
-// @return: true if order was set, false if order was already set
+// Sets the order in the correct order matrix (if the order is not already set)
+// and tell lightio to turn on the corresponding light (if the order is set).
+// @return: true if order is set, false if order was already set
 func setOrder(
 	buttonPress elevio.ButtonEvent,
 	hallOrders [][]bool,
-	cabOrders []bool,
-	TurnOnLightsChan chan<- elevio.ButtonEvent) (bool) {
+	cabOrders []bool) bool {
 
 	if buttonPress.Button == elevio.BT_Cab {
-		// Return false if order is already set
-		if (cabOrders[buttonPress.Floor]) {
+		if cabOrders[buttonPress.Floor] {
 			return false
 		}
 		cabOrders[buttonPress.Floor] = true
-	
+
 	} else {
-		// Return false if order is already set
 		if hallOrders[buttonPress.Floor][buttonPress.Button] {
 			return false
 		}
-		hallOrders[buttonPress.Floor][buttonPress.Button] = true;
+		hallOrders[buttonPress.Floor][buttonPress.Button] = true
 	}
 
-	TurnOnLightsChan <- buttonPress
-	return true;
+	// TODO remove commented light code
+	// TurnOnLightsChan <- buttonPress
+	return true
 }
 
+// Clear all orders in the correct order matrix and tell lightio to turn off the corresponding lights
 func clearOrdersAtFloor(
 	floor int,
 	hallOrders [][]bool,
-	cabOrders []bool,
-	TurnOffLightsChan chan<- elevio.ButtonEvent) {
+	cabOrders []bool) {
+
 	cabOrders[floor] = false
 	hallOrders[floor] = []bool{false, false}
-	// Clear all buttons
+
+	// TODO remove commented light code
+	/*// Clear all button lights on floor
 	for orderType := elevio.BT_HallUp; orderType <= elevio.BT_Cab; orderType++ {
-		TurnOffLightsChan <- elevio.ButtonEvent {
-			Floor: floor,
+		TurnOffLightsChan <- elevio.ButtonEvent{
+			Floor:  floor,
 			Button: orderType,
 		}
-	}
+	}*/
 }
 
+// Assigner ...
+// Will calculate and assign confirmed orders to the current node each time new state data or
+// new confirmed orders enters the system.
+// The new calculated orders are sent to the fsm.
+// The optimal distribution of orders are calculated using an external script, utilizing the state
+// information on each node in addition to all the confirmed orders in the system.
 func Assigner(
 	localID fsm.NodeID,
 	numFloors int,
-	HallOrdersChanChan <-chan [][] bool,
-	CabOrdersChanChan <-chan [] bool,
+	HallOrdersChanChan <-chan [][]bool,
+	CabOrdersChanChan <-chan []bool,
 	LocallyAssignedOrdersChan chan<- [][]bool,
 	NewOrderChan <-chan elevio.ButtonEvent,
 	CompletedOrderChan <-chan int,
-	AllNodeStatesChan <-chan map[fsm.NodeID] fsm.NodeState,
-	TurnOffLightsChan chan<- elevio.ButtonEvent,
-	TurnOnLightsChan chan<- elevio.ButtonEvent) { 
+	AllNodeStatesChan <-chan map[fsm.NodeID]fsm.NodeState) {
 
-	// Initialize empty matrices
+	// Initialize variables
 	//-------
-	currHallOrdersChan := make([][] bool, numFloors); 
-	currCabOrdersChan := make([] bool, numFloors);
+	currHallOrdersChan := make([][]bool, numFloors)
+	currCabOrdersChan := make([]bool, numFloors)
 
 	for floor := range currHallOrdersChan {
-		currHallOrdersChan[floor] = make([] bool, 2)
+		currHallOrdersChan[floor] = make([]bool, 2)
 	}
 
 	for floor := range currHallOrdersChan {
@@ -179,36 +187,46 @@ func Assigner(
 	}
 
 	optimize := false
-	currAllNodeStatesChan := make(map[fsm.NodeID] fsm.NodeState);
-	var currOptimizationInputJSON []byte;
-	var optimalAssignedOrders map[string] [][]bool;
+	currAllNodeStatesChan := make(map[fsm.NodeID]fsm.NodeState)
+	var currOptimizationInputJSON []byte
+	var optimalAssignedOrders map[string][][]bool
+
+	// Order Assigner
+	// (Handler for assigning all confirmed orders when new data enters the system)
+	// --------
 
 	for {
 		select {
-			case a := <- AllNodeStatesChan:
-				currAllNodeStatesChan = a
+
+		// Optimize each time currAllNodeStates are updated
+		case a := <-AllNodeStatesChan:
+			currAllNodeStatesChan = a
+			optimize = true
+
+		// Optimize if the new order was not already in the system
+		case a := <-NewOrderChan:
+			// Optimize if something is changed
+			if setOrder(a, currHallOrdersChan, currCabOrdersChan) {
 				optimize = true
+			}
 
-			case a := <- NewOrderChan:
-				// Optimize if something is changed
-				if setOrder(a, currHallOrdersChan, currCabOrdersChan, TurnOnLightsChan) {
-					optimize = true
-				}
+		// Clear completed orders
+		// TODO shouldn't this also set the optimize flag?
+		case a := <-CompletedOrderChan:
+			clearOrdersAtFloor(a, currHallOrdersChan, currCabOrdersChan)
 
-			case a := <- CompletedOrderChan:
-				clearOrdersAtFloor(a, currHallOrdersChan, currCabOrdersChan, TurnOffLightsChan)
-
-			default:
+		default:
+			// TODO is this necessary?
 		}
 
-		// Calculate optimal AssignedLocalOrders when new data has arrived and states have been initialized 
+		// Calculate optimal AssignedLocalOrders when new data has arrived and states have been initialized
 		if optimize && len(currAllNodeStatesChan) != 0 {
 			optimize = false
 
 			// Calculate new optimalAssignedOrders time a message is received
-			currOptimizationInputJSON = encodeJSON(currHallOrdersChan, currCabOrdersChan, currAllNodeStatesChan);
-			outJSON := runOptimizer(currOptimizationInputJSON);
-			json.Unmarshal(outJSON, &optimalAssignedOrders);
+			currOptimizationInputJSON = encodeJSON(currHallOrdersChan, currCabOrdersChan, currAllNodeStatesChan)
+			outJSON := runOptimizer(currOptimizationInputJSON)
+			json.Unmarshal(outJSON, &optimalAssignedOrders)
 
 			currLocallyAssignedOrders := optimalAssignedOrders[string(localID)]
 
