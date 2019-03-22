@@ -58,7 +58,6 @@ func main() {
 	}
 	optimalOrderAssignerChns := optimalOrderAssigner.OptimalOrderAssignerChannels {
 		NewOrderChan: make(chan elevio.ButtonEvent), // TODO move to consensus module
-		CompletedOrderChan: make(chan int),
 		LocallyAssignedOrdersChan: make(chan datatypes.AssignedOrdersMatrix, 2),
 		// Needs a buffer size bigger than one because the optimalOrderAssigner might send on this channel multiple times before FSM manages to receive!
 	}
@@ -100,8 +99,7 @@ func main() {
 		optimalOrderAssignerChns.LocallyAssignedOrdersChan,
 		hallConsensusChns.CompletedOrderChan,
 		cabConsensusChns.CompletedOrderChan,
-		nodeStatesHandlerChns.LocalNodeStateChan,
-		optimalOrderAssignerChns.CompletedOrderChan)
+		nodeStatesHandlerChns.LocalNodeStateChan)
 
 	go iolights.LightHandler(
 		numFloors,
@@ -124,7 +122,6 @@ func main() {
 		numFloors,
 		optimalOrderAssignerChns.LocallyAssignedOrdersChan,
 		hallConsensusChns.ConfirmedOrdersChan,
-		optimalOrderAssignerChns.CompletedOrderChan,
 		nodeStatesHandlerChns.AllNodeStatesChan)
 
 	go network.Module(

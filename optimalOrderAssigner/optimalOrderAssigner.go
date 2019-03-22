@@ -17,8 +17,6 @@ type OptimalOrderAssignerChannels struct {
 	CabOrdersChan             chan []bool
 	NewOrderChan              chan elevio.ButtonEvent // TODO move to consensus module
 	LocallyAssignedOrdersChan chan datatypes.AssignedOrdersMatrix
-	CompletedOrderChan        chan int
-
 }
 
 type singleNodeStateJSON struct {
@@ -171,9 +169,7 @@ func Assigner(
 	localID datatypes.NodeID,
 	numFloors int,
 	LocallyAssignedOrdersChan chan<- datatypes.AssignedOrdersMatrix,
-	//NewOrderChan <-chan elevio.ButtonEvent, // Will be removed
 	ConfirmedHallOrdersChan <-chan datatypes.ConfirmedHallOrdersMatrix,
-	CompletedOrderChan <-chan int, // Will be removed
 	AllNodeStatesChan <-chan map[datatypes.NodeID]fsm.NodeState) {
 
 
@@ -219,21 +215,17 @@ func Assigner(
 				optimize = true
 			}*/
 
-		// Optimize if the new order was not already in the system
+		// Receive new confirmedOrders from hallConsensus
+		// Optimize if the new order is not already in the system
 		case a := <- ConfirmedHallOrdersChan:
 
-			// TODO implement datatypes!
+			// Avoid double calculation when hit desired floor 
 			if reflect.DeepEqual(a, currHallOrders) {
 				break
 			}
 
 			currHallOrders = a
 			optimize = true
-
-		// Clear completed orders
-		// (Note: Does not optimize because state is changed on completed orders)
-		case a := <- CompletedOrderChan:
-			clearOrdersAtFloor(a, currHallOrders, currCabOrders)
 
 		default:
 			// TODO is this necessary?
