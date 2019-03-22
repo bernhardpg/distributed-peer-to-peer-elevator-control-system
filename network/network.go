@@ -3,12 +3,12 @@ package network
 import (
 	"time"
 	"fmt"
+	"strconv"
+	"../datatypes"
 	"./driver/bcast"
 	"./driver/peers"
-	"strconv"
 	"../fsm"
 	"../nodeStatesHandler"
-	"../consensusModule/generalConsensusModule"
 	"../consensusModule/hallConsensus"
 )
 
@@ -18,16 +18,16 @@ const sendRate = 20 * time.Millisecond
 type Channels struct {
 	LocalNodeStateChan chan fsm.NodeState
 	RemoteNodeStatesChan chan nodeStatesHandler.NodeStateMsg
-	LocalHallOrdersChan chan [][] generalConsensusModule.Req
+	LocalHallOrdersChan chan [][] datatypes.Req
 }
 
 func Module(
-	localID nodeStatesHandler.NodeID,
+	localID datatypes.NodeID,
 	LocalNodeStateChan <-chan fsm.NodeState,
 	RemoteNodeStatesChan chan<- nodeStatesHandler.NodeStateMsg,
-	NodeLostChan chan<- nodeStatesHandler.NodeID,
-	LocalHallOrdersChan <-chan [][] generalConsensusModule.Req,
-	RemoteHallOrdersChan chan<- [][] generalConsensusModule.Req) {
+	NodeLostChan chan<- datatypes.NodeID,
+	LocalHallOrdersChan <-chan datatypes.HallOrdersMatrix,
+	RemoteHallOrdersChan chan<- datatypes.HallOrdersMatrix) {
 
 	// Configure Peer List
 	// -----
@@ -56,7 +56,7 @@ func Module(
 	bcastTimer := time.NewTimer(bcastPeriod)
 
 	localState := fsm.NodeState {}
-	localHallOrders := [][] generalConsensusModule.Req {{}}
+	var localHallOrders datatypes.HallOrdersMatrix
 	
 	// Handle network traffic
 	// -----
@@ -75,7 +75,7 @@ func Module(
 			if len(a.Lost) != 0 {
 				for _, currIDstr := range a.Lost {
 					currID,_ := strconv.Atoi(currIDstr)
-					NodeLostChan <- nodeStatesHandler.NodeID(currID)
+					NodeLostChan <- datatypes.NodeID(currID)
 				}
 			}
 

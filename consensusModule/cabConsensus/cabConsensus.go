@@ -2,10 +2,9 @@ package cabConsensus
 
 import(
 	"fmt"
+	"../../datatypes"
 	"../../elevio"
-	"../../nodeStatesHandler"
 	"../generalConsensusModule"
-
 )
 
 type Channels struct {
@@ -14,9 +13,9 @@ type Channels struct {
 }
 
 func updateConfirmedCabOrders(
-	localCabOrders map[nodeStatesHandler.NodeID] [] generalConsensusModule.Req, 
-	confirmedCabOrders map[nodeStatesHandler.NodeID][] bool,
-	localID nodeStatesHandler.NodeID, 
+	localCabOrders map[datatypes.NodeID] [] datatypes.Req, 
+	confirmedCabOrders map[datatypes.NodeID][] bool,
+	localID datatypes.NodeID, 
 	TurnOffCabLightChan chan<- elevio.ButtonEvent, 
 	TurnOnCabLightChan chan<- elevio.ButtonEvent){
 
@@ -25,7 +24,7 @@ func updateConfirmedCabOrders(
 	for cabID, _ := range localCabOrders{
 		for floor := range localCabOrders[cabID]{
 
-			if localCabOrders[cabID][floor].State == generalConsensusModule.Confirmed {
+			if localCabOrders[cabID][floor].State == datatypes.Confirmed {
 
 				//Set light if this node and not already set
 				if (cabID == localID) && !confirmedCabOrders[cabID][floor] {
@@ -35,7 +34,7 @@ func updateConfirmedCabOrders(
 
 			} else {
 				//Clear lights if not already cleared
-				if (localCabOrders[cabID][floor].State == generalConsensusModule.Inactive) && (confirmedCabOrders[cabID][floor] == true){
+				if (localCabOrders[cabID][floor].State == datatypes.Inactive) && (confirmedCabOrders[cabID][floor] == true){
 					if cabID == localID {
 						clearCabLight(floor, TurnOffCabLightChan) 
 					}
@@ -69,30 +68,30 @@ func clearCabLight(currFloor int, TurnOffCabLightChan chan<- elevio.ButtonEvent)
 
 
 func CabOrderConsensus(
-	localID nodeStatesHandler.NodeID,
+	localID datatypes.NodeID,
 	numFloors int, 
 	NewCabOrderChan <-chan int,
 	CompletedCabOrderChan <-chan int,
-	PeersListUpdateCabChan <-chan [] nodeStatesHandler.NodeID,
-	LostNodeChan <-chan nodeStatesHandler.NodeID,
-	RemoteCabOrdersChan <-chan map[nodeStatesHandler.NodeID] [] generalConsensusModule.Req,
+	PeersListUpdateCabChan <-chan [] datatypes.NodeID,
+	LostNodeChan <-chan datatypes.NodeID,
+	RemoteCabOrdersChan <-chan map[datatypes.NodeID] [] datatypes.Req,
 	TurnOffCabLightChan chan<- elevio.ButtonEvent,
 	TurnOnCabLightChan chan<- elevio.ButtonEvent,
-	ConfirmedCabOrdersToAssignerChan chan<- map[nodeStatesHandler.NodeID] [] bool,
-	CabOrdersToNetworkChan chan<- map[nodeStatesHandler.NodeID] [] generalConsensusModule.Req) {
+	ConfirmedCabOrdersToAssignerChan chan<- map[datatypes.NodeID] [] bool,
+	CabOrdersToNetworkChan chan<- map[datatypes.NodeID] [] datatypes.Req) {
 
-	var localCabOrders = make(map[nodeStatesHandler.NodeID] [] generalConsensusModule.Req)
-	var confirmedCabOrders = make(map[nodeStatesHandler.NodeID] [] bool)
+	var localCabOrders = make(map[datatypes.NodeID] [] datatypes.Req)
+	var confirmedCabOrders = make(map[datatypes.NodeID] [] bool)
 
-	peersList := [] nodeStatesHandler.NodeID{}
+	peersList := [] datatypes.NodeID{}
 
 	
-	localCabOrders[localID] = make([] generalConsensusModule.Req, numFloors)
+	localCabOrders[localID] = make([] datatypes.Req, numFloors)
 	confirmedCabOrders[localID] = make([] bool, numFloors)
 
 	for floor := range localCabOrders[localID] {
-		localCabOrders[localID][floor] = generalConsensusModule.Req {
-				State: generalConsensusModule.Unknown,
+		localCabOrders[localID][floor] = datatypes.Req {
+				State: datatypes.Unknown,
 				AckBy: nil,
 		}
 		confirmedCabOrders[localID][floor] = false
@@ -106,9 +105,9 @@ func CabOrderConsensus(
 
 		case a := <- NewCabOrderChan:
 
-			localCabOrders[localID][a] = generalConsensusModule.Req {
-					State: generalConsensusModule.PendingAck,
-					AckBy: []nodeStatesHandler.NodeID{localID},
+			localCabOrders[localID][a] = datatypes.Req {
+					State: datatypes.PendingAck,
+					AckBy: []datatypes.NodeID{localID},
 			}
 
 
@@ -116,8 +115,8 @@ func CabOrderConsensus(
 
 		case a := <- CompletedCabOrderChan:
 			
-			localCabOrders[localID][a] = generalConsensusModule.Req {
-					State: generalConsensusModule.Inactive,
+			localCabOrders[localID][a] = datatypes.Req {
+					State: datatypes.Inactive,
 					AckBy: nil,
 			}
 
@@ -137,8 +136,8 @@ func CabOrderConsensus(
 			if reqArr, ok := localCabOrders[a]; ok {
 				for floor := range reqArr{
 						//If previous state was Inactive, change to Unknown
-					if reqArr[floor].State == generalConsensusModule.Inactive{
-						localCabOrders[a][floor].State = generalConsensusModule.Unknown
+					if reqArr[floor].State == datatypes.Inactive{
+						localCabOrders[a][floor].State = datatypes.Unknown
 					}
 				}
 			CabOrdersToNetworkChan <- localCabOrders

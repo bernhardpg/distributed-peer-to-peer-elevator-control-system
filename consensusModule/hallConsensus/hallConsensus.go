@@ -2,35 +2,35 @@ package hallConsensus
 
 import(
 	"fmt"
+	"../../datatypes"
 	"../../elevio"
 	"../generalConsensusModule"
-	"../../nodeStatesHandler"
 	)
 
 type Channels struct {
 	NewOrderChan chan elevio.ButtonEvent
 	CompletedOrderChan chan int
-	ConfirmedOrdersChan chan [][] bool
-	LocalOrdersChan chan [][] generalConsensusModule.Req
-	RemoteOrdersChan chan [][] generalConsensusModule.Req
+	ConfirmedOrdersChan chan datatypes.ConfirmedHallOrdersMatrix
+	LocalOrdersChan chan datatypes.HallOrdersMatrix
+	RemoteOrdersChan chan datatypes.HallOrdersMatrix
 }
 
 type LocalHallOrdersMsg struct {
-	ID nodeStatesHandler.NodeID
-	HallOrders [][] generalConsensusModule.Req
+	ID datatypes.NodeID
+	HallOrders datatypes.HallOrdersMatrix
 }
 
 // Constructs a matrix with boolean values for the confirmed orders
 func updateConfirmedHallOrders(
-	localHallOrders [][] generalConsensusModule.Req, 
-	confirmedHallOrders *[][] bool) {
+	localHallOrders datatypes.HallOrdersMatrix, 
+	confirmedHallOrders *datatypes.ConfirmedHallOrdersMatrix) {
 	//TurnOffHallLightChan chan<- elevio.ButtonEvent, 
 	//TurnOnHallLightChan chan<- elevio.ButtonEvent) {
 
 	for floor := range localHallOrders {
 		for orderType := range localHallOrders[floor] {
 
-			if localHallOrders[floor][orderType].State == generalConsensusModule.Confirmed {
+			if localHallOrders[floor][orderType].State == datatypes.Confirmed {
 				/*//Set light if not already set
 				if !(*confirmedHallOrders)[floor][orderType] {
 					setHallLight(floor, orderType, TurnOnHallLightChan)
@@ -39,7 +39,7 @@ func updateConfirmedHallOrders(
 				(*confirmedHallOrders)[floor][orderType] = true
 			} else {
 				/*//Clear lights if not already cleared
-				if (localHallOrders[floor][orderType].State == generalConsensusModule.Inactive) && ((*confirmedHallOrders)[floor][orderType] == true) {
+				if (localHallOrders[floor][orderType].State == datatypes.Inactive) && ((*confirmedHallOrders)[floor][orderType] == true) {
 					clearHallLights(floor, TurnOffHallLightChan) 
 				}*/
 				(*confirmedHallOrders)[floor][orderType] = false
@@ -76,38 +76,23 @@ func clearHallLights(currFloor int, TurnOffHallLightChan chan<- elevio.ButtonEve
 
 
 func ConsensusModule(
-	localID nodeStatesHandler.NodeID,
-	numFloors int, 
+	localID datatypes.NodeID,
 	NewOrderChan <-chan elevio.ButtonEvent,
-	ConfirmedOrdersChan chan<- [][] bool,
+	ConfirmedOrdersChan chan<- datatypes.ConfirmedHallOrdersMatrix,
 	CompletedOrderChan <-chan int, 
-	//peerlistUpdateHallChan <-chan [] nodeStatesHandler.NodeID,
+	//peerlistUpdateHallChan <-chan [] datatypes.NodeID,
 	TurnOffHallLightChan chan<- elevio.ButtonEvent,
 	TurnOnHallLightChan chan<- elevio.ButtonEvent,
-	LocalOrdersChan chan<- [][] generalConsensusModule.Req,
-	RemoteOrdersChan <-chan [][] generalConsensusModule.Req) {
+	LocalOrdersChan chan<- datatypes.HallOrdersMatrix,
+	RemoteOrdersChan <-chan datatypes.HallOrdersMatrix) {
 
-	var localHallOrders = make([][] generalConsensusModule.Req, numFloors)
-	var confirmedHallOrders = make([][] bool, numFloors)
+	// All orders will be initialized to Unknown (zero-state)
+	var localHallOrders datatypes.HallOrdersMatrix
+	
+	var confirmedHallOrders datatypes.ConfirmedHallOrdersMatrix
 
 	// TODO remove localID
-	peerlist := [] nodeStatesHandler.NodeID { localID }
-
-
-	// Initialize all localHallOrders to unknown
-	// (To allow overrides from remote data from other nodes on network)
-	for floor := range localHallOrders {
-		localHallOrders[floor] = make([] generalConsensusModule.Req, 2)
-
-		for orderReq := range localHallOrders[floor] {	
-			localHallOrders[floor][orderReq] = generalConsensusModule.Req {
-				State: generalConsensusModule.Unknown,
-				AckBy: nil,
-			}
-
-			confirmedHallOrders[floor] = [] bool{false, false}
-		}
-	}
+	peerlist := [] datatypes.NodeID { localID }
 	
 	// Send initialized variables
 	// ------
@@ -144,9 +129,9 @@ func ConsensusModule(
 			// (Make sure to never access elements outside of array)
 			if (a.Button == elevio.BT_HallUp || a.Button == elevio.BT_HallDown) {
 
-				localHallOrders[a.Floor][a.Button] = generalConsensusModule.Req {
-					State: generalConsensusModule.PendingAck,
-					AckBy: [] nodeStatesHandler.NodeID { localID },
+				localHallOrders[a.Floor][a.Button] = datatypes.Req {
+					State: datatypes.PendingAck,
+					AckBy: [] datatypes.NodeID { localID },
 				}
 
 				// Send updates to network module
@@ -154,14 +139,15 @@ func ConsensusModule(
 			}
 
 		// Mark completed orders as inactive and update network module and optimalAssigner
+		// with all confirmedHallOrders
 		case a := <- CompletedOrderChan:
 
 			// Set both dir Up and dir Down to inactive
-			inactiveReq := generalConsensusModule.Req {
-				State: generalConsensusModule.Inactive, 
+			inactiveReq := datatypes.Req {
+				State: datatypes.Inactive, 
 				AckBy: nil, // Delete ackBy list when transitioning to inactive
 			}
-			localHallOrders[a] = [] generalConsensusModule.Req {
+			localHallOrders[a] = [2] datatypes.Req {
 				inactiveReq,
 				inactiveReq,
 			}
@@ -185,8 +171,8 @@ func ConsensusModule(
 				for floor := range localHallOrders {
 					for orderReq := range localHallOrders[floor] {
 
-						if localHallOrders[floor][orderReq].State == generalConsensusModule.Inactive {
-							localHallOrders[floor][orderReq].State = generalConsensusModule.Unknown
+						if localHallOrders[floor][orderReq].State == datatypes.Inactive {
+							localHallOrders[floor][orderReq].State = datatypes.Unknown
 						}
 					}
 				}
@@ -217,7 +203,6 @@ func ConsensusModule(
 			// Only update confirmedHallOrders when orders are changed to inactive or confirmed
 			if newConfirmedOrInactiveFlag {
 				updateConfirmedHallOrders(localHallOrders, &confirmedHallOrders)
-				fmt.Printf("(hallConsensus) Address of confirmedHallOrders: %p\n", &confirmedHallOrders)
 
 				ConfirmedOrdersChan <- confirmedHallOrders
 			}

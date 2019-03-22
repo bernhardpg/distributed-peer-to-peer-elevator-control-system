@@ -1,13 +1,13 @@
 package main
 
 import (
+	"./datatypes"
 	"./fsm"
 	"./elevio"
 	"./iolights"
 	"./optimalOrderAssigner"
 	"./nodeStatesHandler"
 	"./network"
-	"./consensusModule/generalConsensusModule"
 	"./consensusModule/hallConsensus"
 	"./consensusModule/cabConsensus"
 	"fmt"
@@ -18,7 +18,8 @@ import (
 
 func main() {
 	
-	numFloors := 4;
+	numFloors := elevio.NumFloors;
+	fmt.Println("(main) numFloors: ", numFloors)
 
 	// ID Handling
 	// ------
@@ -30,7 +31,7 @@ func main() {
 
 	flag.Parse()
 
-	localID := (nodeStatesHandler.NodeID)(*IDptr)
+	localID := (datatypes.NodeID)(*IDptr)
 	port := *portPtr
 
 	fmt.Println("(main) localID:", localID)
@@ -38,7 +39,7 @@ func main() {
 
 	// Connect to elevator through tcp (either hardware or simulator)
 	// -----
-	elevio.Init("localhost:" + strconv.Itoa(port), numFloors);
+	elevio.Init("localhost:" + strconv.Itoa(port));
 
 
 	// Init channels
@@ -58,13 +59,13 @@ func main() {
 	optimalOrderAssignerChns := optimalOrderAssigner.OptimalOrderAssignerChannels {
 		NewOrderChan: make(chan elevio.ButtonEvent), // TODO move to consensus module
 		CompletedOrderChan: make(chan int),
-		LocallyAssignedOrdersChan: make(chan [][] bool, 2),
+		LocallyAssignedOrdersChan: make(chan datatypes.AssignedOrdersMatrix, 2),
 		// Needs a buffer size bigger than one because the optimalOrderAssigner might send on this channel multiple times before FSM manages to receive!
 	}
 	nodeStatesHandlerChns := nodeStatesHandler.NodeStatesHandlerChannels {
 		LocalNodeStateChan: make(chan fsm.NodeState),
-		AllNodeStatesChan: make(chan map[nodeStatesHandler.NodeID] fsm.NodeState, 2),
-		NodeLostChan: make(chan nodeStatesHandler.NodeID),
+		AllNodeStatesChan: make(chan map[datatypes.NodeID] fsm.NodeState, 2),
+		NodeLostChan: make(chan datatypes.NodeID),
 	}
 	networkChns := network.Channels {
 		LocalNodeStateChan: make(chan fsm.NodeState),
@@ -73,9 +74,9 @@ func main() {
 	hallConsensusChns := hallConsensus.Channels {
 		CompletedOrderChan: make(chan int),
 		NewOrderChan: make(chan elevio.ButtonEvent),
-		ConfirmedOrdersChan: make(chan [][] bool),
-		LocalOrdersChan: make(chan [][] generalConsensusModule.Req, 2),
-		RemoteOrdersChan: make(chan [][] generalConsensusModule.Req),
+		ConfirmedOrdersChan: make(chan datatypes.ConfirmedHallOrdersMatrix),
+		LocalOrdersChan: make(chan datatypes.HallOrdersMatrix, 2),
+		RemoteOrdersChan: make(chan datatypes.HallOrdersMatrix),
 	}
 	cabConsensusChns := cabConsensus.Channels {
 		CompletedOrderChan: make(chan int),
@@ -88,7 +89,6 @@ func main() {
 	// Start modules
 	// -----
 	go elevio.IOReader(
-		numFloors,
 		hallConsensusChns.NewOrderChan,
 		cabConsensusChns.NewOrderChan,
 		fsmChns.ArrivedAtFloorChan,
@@ -138,7 +138,6 @@ func main() {
 
 	go hallConsensus.ConsensusModule(
 		localID,
-		numFloors,
 		hallConsensusChns.NewOrderChan,
 		hallConsensusChns.ConfirmedOrdersChan,
 		hallConsensusChns.CompletedOrderChan,

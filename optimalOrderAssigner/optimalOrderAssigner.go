@@ -1,21 +1,22 @@
 package optimalOrderAssigner
 
 import (
-	"../elevio"
-	"../fsm"
-	"../nodeStatesHandler"
+	"fmt"
 	"encoding/json"
 	"log"
 	"os"
 	"os/exec"
 	"reflect"
+	"../datatypes"
+	"../elevio"
+	"../fsm"
 )
 
 type OptimalOrderAssignerChannels struct {
 	HallOrdersChan            chan [][]bool
 	CabOrdersChan             chan []bool
 	NewOrderChan              chan elevio.ButtonEvent // TODO move to consensus module
-	LocallyAssignedOrdersChan chan [][]bool
+	LocallyAssignedOrdersChan chan datatypes.AssignedOrdersMatrix
 	CompletedOrderChan        chan int
 
 }
@@ -28,16 +29,16 @@ type singleNodeStateJSON struct {
 }
 
 type optimizationInputJSON struct {
-	HallRequests [][]bool                       `json:"hallRequests"`
-	States       map[string]singleNodeStateJSON `json:"states"`
+	HallRequests datatypes.ConfirmedHallOrdersMatrix	`json:"hallRequests"`
+	States       map[string]singleNodeStateJSON 			`json:"states"`
 }
 
 // Encodes the data for HallRequstAssigner script, according to
 // format required by optimization script
 func encodeJSON(
-	currHallOrders [][]bool,
+	currHallOrders datatypes.ConfirmedHallOrdersMatrix,
 	currCabOrders []bool,
-	currAllNodeStates map[nodeStatesHandler.NodeID] fsm.NodeState)([]byte) {
+	currAllNodeStates map[datatypes.NodeID] fsm.NodeState)([]byte) {
 
 	// TODO change currCabOrders to allCabOrders
 
@@ -144,11 +145,11 @@ func setOrder(
 // Clear all orders in the correct order matrix and tell lightio to turn off the corresponding lights
 func clearOrdersAtFloor(
 	floor int,
-	hallOrders [][]bool,
+	hallOrders datatypes.ConfirmedHallOrdersMatrix,
 	cabOrders []bool) {
 
 	cabOrders[floor] = false
-	hallOrders[floor] = []bool{false, false}
+	hallOrders[floor] = [2] bool{false, false}
 
 	// TODO remove commented light code
 	/*// Clear all button lights on floor
@@ -167,24 +168,20 @@ func clearOrdersAtFloor(
 // The optimal distribution of orders are calculated using an external script, utilizing the state
 // information on each node in addition to all the confirmed orders in the system.
 func Assigner(
-	localID nodeStatesHandler.NodeID,
+	localID datatypes.NodeID,
 	numFloors int,
-	LocallyAssignedOrdersChan chan<- [][]bool,
+	LocallyAssignedOrdersChan chan<- datatypes.AssignedOrdersMatrix,
 	//NewOrderChan <-chan elevio.ButtonEvent, // Will be removed
-	ConfirmedHallOrdersChan <-chan [][] bool,
+	ConfirmedHallOrdersChan <-chan datatypes.ConfirmedHallOrdersMatrix,
 	CompletedOrderChan <-chan int, // Will be removed
-	AllNodeStatesChan <-chan map[nodeStatesHandler.NodeID]fsm.NodeState) {
+	AllNodeStatesChan <-chan map[datatypes.NodeID]fsm.NodeState) {
 
 
 	// Initialize variables
 	//-------
 
-	currHallOrders := make([][] bool, numFloors); 
-	currCabOrders := make([] bool, numFloors);
-
-	for floor := range currHallOrders {
-		currHallOrders[floor] = make([] bool, 2)
-	}
+	var currHallOrders datatypes.ConfirmedHallOrdersMatrix
+	currCabOrders := make([] bool, numFloors)
 
 	for floor := range currHallOrders {
 		for orderType := range currHallOrders[floor] {
@@ -194,9 +191,9 @@ func Assigner(
 	}
 
 	optimize := false
-	currAllNodeStates := make(map[nodeStatesHandler.NodeID] fsm.NodeState);
+	currAllNodeStates := make(map[datatypes.NodeID] fsm.NodeState);
 	var currOptimizationInputJSON []byte
-	var optimalAssignedOrders map[string][][]bool
+	var optimalAssignedOrders map[string] datatypes.AssignedOrdersMatrix
 
 	// Order Assigner
 	// (Handler for assigning all confirmed orders when new data enters the system)
@@ -225,12 +222,10 @@ func Assigner(
 		// Optimize if the new order was not already in the system
 		case a := <- ConfirmedHallOrdersChan:
 
-			/*// TODO implement datatypes!
+			// TODO implement datatypes!
 			if reflect.DeepEqual(a, currHallOrders) {
 				break
-			}*/
-
-			// Why are these equal?? Because the underlying memory is the same
+			}
 
 			currHallOrders = a
 			optimize = true

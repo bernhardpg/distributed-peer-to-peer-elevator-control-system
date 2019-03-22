@@ -15,6 +15,7 @@
 - Rename neworder channels in hallConsensus and cabcons
 	- Change both chans to elevio.ButtonEvent?
 - Deep copy??
+- numFloors as param or global const?
 
 - Rename generalConsensusModukle to consensusFunctions
 - IMPORTANT: Handle physical obstruction (timout in fsm, signal to network that node is to be regarded as offline)

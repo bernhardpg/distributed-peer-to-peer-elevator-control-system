@@ -1,8 +1,10 @@
 package fsm
 
 import (
+	"../datatypes"
 	"../elevio"
 	"time"
+	"fmt"
 	"reflect"
 )
 
@@ -33,7 +35,11 @@ type NodeState struct {
 }
 
 
-func calculateNextOrder(behaviour NodeBehaviour, currFloor int, currDir OrderDir, assignedOrders [][] bool) (int) {
+func calculateNextOrder(
+	behaviour NodeBehaviour,
+	currFloor int, currDir OrderDir,
+	assignedOrders datatypes.AssignedOrdersMatrix) int {
+
 	numFloors := len(assignedOrders);
 	skipCurrFloor := 0;
 
@@ -91,7 +97,7 @@ func calculateNextOrder(behaviour NodeBehaviour, currFloor int, currDir OrderDir
 	return calculateNextOrder(behaviour, currFloor, Up, assignedOrders);
 }
 
-func hasOrders(assignedOrders [][] bool) (bool) {
+func hasOrders(assignedOrders datatypes.AssignedOrdersMatrix) (bool) {
 	for floor := 0; floor < len(assignedOrders); floor++ {
 		for orderType := elevio.BT_HallUp; orderType <= elevio.BT_Cab; orderType++ {
 			if assignedOrders[floor][orderType] == true {
@@ -103,7 +109,12 @@ func hasOrders(assignedOrders [][] bool) (bool) {
 	return false;
 }
 
-func calculateDirection(numFloors int, currFloor int, currOrder int, currDir OrderDir) (OrderDir) {
+func calculateDirection(
+	numFloors int,
+	currFloor int,
+	currOrder int,
+	currDir OrderDir) (OrderDir) {
+
 	if currOrder == currFloor {
 		// Change direction if elev is at top or bottom floor
 		if currFloor == 0 {
@@ -118,11 +129,6 @@ func calculateDirection(numFloors int, currFloor int, currOrder int, currDir Ord
 		return Up;
 	}
 	return Down
-}
-
-func setOrder(buttonPress elevio.ButtonEvent, assignedOrders [][]bool, TurnOnLightsChan chan<- elevio.ButtonEvent) {
-	assignedOrders[buttonPress.Floor][buttonPress.Button] = true;
-	TurnOnLightsChan <- buttonPress;
 }
 
 func transmitState(
@@ -145,7 +151,7 @@ func transmitState(
 func StateMachine(
 	numFloors int,
 	ArrivedAtFloorChan <-chan int,
-	LocallyAssignedOrdersChan <-chan [][] bool,
+	LocallyAssignedOrdersChan <-chan datatypes.AssignedOrdersMatrix,
 	CompletedHallOrderChan chan<- int,
 	CompletedCabOrderChan chan<- int,
 	LocalNodeStateChan chan<- NodeState,
@@ -159,16 +165,8 @@ func StateMachine(
 	currDir := Up;
 	doorTimer := time.NewTimer(0);
 
-	assignedOrders := make([][]bool, numFloors);
-	for i := range assignedOrders {
-		assignedOrders[i] = make([]bool, 3);
-	}
-
-	for floor := range assignedOrders {
-		for orderType := range assignedOrders[floor] {
-			assignedOrders[floor][orderType] = false;
-		}
-	}
+	var assignedOrders datatypes.AssignedOrdersMatrix
+	fmt.Println("(fsm) assignedOrders: ", assignedOrders)
 
 	// Initialize elevator
 	// -----

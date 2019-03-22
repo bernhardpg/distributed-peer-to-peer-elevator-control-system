@@ -1,26 +1,13 @@
 package generalConsensusModule
 
 import (
-	"../../nodeStatesHandler"
+	"../../datatypes"
 )
 
-type Req struct {
-	State ReqState;
-	AckBy []nodeStatesHandler.NodeID
-}
+func UniqueIDSlice(IDSlice []datatypes.NodeID) []datatypes.NodeID {
 
-type ReqState int
-const (
-	Inactive ReqState = iota
-	PendingAck
-	Confirmed
-	Unknown
-)
-
-func UniqueIDSlice(IDSlice []nodeStatesHandler.NodeID) []nodeStatesHandler.NodeID {
-
-    keys := make(map[nodeStatesHandler.NodeID]bool)
-    list := []nodeStatesHandler.NodeID{} 
+    keys := make(map[datatypes.NodeID]bool)
+    list := []datatypes.NodeID{} 
 
     for _, entry := range IDSlice {
         if _, value := keys[entry]; !value {
@@ -31,7 +18,7 @@ func UniqueIDSlice(IDSlice []nodeStatesHandler.NodeID) []nodeStatesHandler.NodeI
     return list
 }
 
-func containsElement(s [] nodeStatesHandler.NodeID, e nodeStatesHandler.NodeID) bool {
+func containsElement(s [] datatypes.NodeID, e datatypes.NodeID) bool {
     for _, a := range s {
         if a == e {
             return true
@@ -41,7 +28,7 @@ func containsElement(s [] nodeStatesHandler.NodeID, e nodeStatesHandler.NodeID) 
 }
 
 //Returns true if primaryList contains listFraction
-func containsList(primaryList [] nodeStatesHandler.NodeID, listFraction [] nodeStatesHandler.NodeID) bool {
+func containsList(primaryList [] datatypes.NodeID, listFraction [] datatypes.NodeID) bool {
     for _, a := range listFraction {
         if !containsElement(primaryList, a){
         	return false
@@ -50,35 +37,35 @@ func containsList(primaryList [] nodeStatesHandler.NodeID, listFraction [] nodeS
     return true
 }
 
-func Merge (pLocal *Req, remote Req, localID nodeStatesHandler.NodeID, peersList [] nodeStatesHandler.NodeID)(bool){
+func Merge (pLocal *datatypes.Req, remote datatypes.Req, localID datatypes.NodeID, peersList [] datatypes.NodeID)(bool){
 	newConfirmedOrInactiveFlag := false
 
 	switch (*pLocal).State {
 
-	case Inactive:
-		if remote.State == PendingAck {
-			*pLocal = Req {
-				State: PendingAck, 
+	case datatypes.Inactive:
+		if remote.State == datatypes.PendingAck {
+			*pLocal = datatypes.Req {
+				State: datatypes.PendingAck, 
 				AckBy: UniqueIDSlice(append(remote.AckBy, localID)),
 			}
 		}
 
-	case PendingAck:
+	case datatypes.PendingAck:
 		(*pLocal).AckBy = UniqueIDSlice(append(remote.AckBy, localID))
 
-		if (remote.State == Confirmed) || containsList((*pLocal).AckBy, peersList) {
-			(*pLocal).State = Confirmed
+		if (remote.State == datatypes.Confirmed) || containsList((*pLocal).AckBy, peersList) {
+			(*pLocal).State = datatypes.Confirmed
 			newConfirmedOrInactiveFlag = true
-			//Signaliser confirmed
+			//Signaliser datatypes.Confirmed
 		}
 		
 
-	case Confirmed:
+	case datatypes.Confirmed:
 		(*pLocal).AckBy = UniqueIDSlice(append(remote.AckBy, localID))
 
-		if remote.State == Inactive {
-			*pLocal = Req {
-				State: Inactive,
+		if remote.State == datatypes.Inactive {
+			*pLocal = datatypes.Req {
+				State: datatypes.Inactive,
 				AckBy: nil,
 			}
 			newConfirmedOrInactiveFlag = true
@@ -86,30 +73,30 @@ func Merge (pLocal *Req, remote Req, localID nodeStatesHandler.NodeID, peersList
 		}
 
 
-	case Unknown:
+	case datatypes.Unknown:
 		switch remote.State {
 
 
-		case Inactive:
-			*pLocal = Req {
-				State: Inactive,
+		case datatypes.Inactive:
+			*pLocal = datatypes.Req {
+				State: datatypes.Inactive,
 				AckBy: nil,
 			}
 			newConfirmedOrInactiveFlag = true
 
 
-		case PendingAck:
-			*pLocal = Req {
-				State: PendingAck,
+		case datatypes.PendingAck:
+			*pLocal = datatypes.Req {
+				State: datatypes.PendingAck,
 				AckBy: UniqueIDSlice(append(remote.AckBy, localID)),
 			}
 
 
-		case Confirmed:
-			*pLocal = Req {
-				State: Confirmed,
+		case datatypes.Confirmed:
+			*pLocal = datatypes.Req {
+				State: datatypes.Confirmed,
 				AckBy: UniqueIDSlice(append(remote.AckBy, localID)),
-				//Signaliser confirmed
+				//Signaliser datatypes.Confirmed
 			}
 			newConfirmedOrInactiveFlag = true
 
