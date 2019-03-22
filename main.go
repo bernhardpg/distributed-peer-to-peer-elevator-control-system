@@ -7,6 +7,7 @@ import (
 	"./optimalOrderAssigner"
 	"./nodeStatesHandler"
 	"./network"
+	"./consensusModule/generalConsensusModule"
 	"./consensusModule/hallConsensus"
 	"./consensusModule/cabConsensus"
 	"fmt"
@@ -29,7 +30,7 @@ func main() {
 
 	flag.Parse()
 
-	localID := (network.NodeID)(*IDptr)
+	localID := (nodeStatesHandler.NodeID)(*IDptr)
 	port := *portPtr
 
 	fmt.Println("(main) localID:", localID)
@@ -62,17 +63,18 @@ func main() {
 	}
 	nodeStatesHandlerChns := nodeStatesHandler.NodeStatesHandlerChannels {
 		LocalNodeStateChan: make(chan fsm.NodeState),
-		RemoteNodeStatesChan: make(chan network.NodeStateMsg, 2),
-		AllNodeStatesChan: make(chan map[network.NodeID] fsm.NodeState, 2),
-		NodeLostChan: make(chan network.NodeID),
+		AllNodeStatesChan: make(chan map[nodeStatesHandler.NodeID] fsm.NodeState, 2),
+		NodeLostChan: make(chan nodeStatesHandler.NodeID),
 	}
 	networkChns := network.Channels {
 		LocalNodeStateChan: make(chan fsm.NodeState),
+		RemoteNodeStatesChan: make(chan nodeStatesHandler.NodeStateMsg, 2),
 	}
 	hallConsensusChns := hallConsensus.Channels {
 		CompletedOrderChan: make(chan int),
 		NewOrderChan: make(chan elevio.ButtonEvent),
 		ConfirmedOrdersChan: make(chan [][] bool),
+		LocalOrdersChan: make(chan [][] generalConsensusModule.Req),
 	}
 	cabConsensusChns := cabConsensus.Channels {
 		CompletedOrderChan: make(chan int),
@@ -112,10 +114,10 @@ func main() {
 	go nodeStatesHandler.NodeStatesHandler(
 		localID,
 		nodeStatesHandlerChns.LocalNodeStateChan,
-		nodeStatesHandlerChns.RemoteNodeStatesChan,
 		nodeStatesHandlerChns.AllNodeStatesChan,
 		nodeStatesHandlerChns.NodeLostChan,
-		networkChns.LocalNodeStateChan)
+		networkChns.LocalNodeStateChan,
+		networkChns.RemoteNodeStatesChan)
 
 	go optimalOrderAssigner.Assigner(
 		localID,
@@ -128,8 +130,10 @@ func main() {
 	go network.Module(
 		localID,
 		networkChns.LocalNodeStateChan,
-		nodeStatesHandlerChns.RemoteNodeStatesChan,
-		nodeStatesHandlerChns.NodeLostChan)
+		networkChns.RemoteNodeStatesChan,
+		nodeStatesHandlerChns.NodeLostChan,
+		hallConsensusChns.LocalOrdersChan)
+
 
 	go hallConsensus.ConsensusModule(
 		localID,
@@ -139,6 +143,7 @@ func main() {
 		hallConsensusChns.CompletedOrderChan,
 		iolightsChns.TurnOffHallLightChan,
 		iolightsChns.TurnOnHallLightChan,
+		hallConsensusChns.LocalOrdersChan,
 		)
 
 	fmt.Println("(main) Started all modules");

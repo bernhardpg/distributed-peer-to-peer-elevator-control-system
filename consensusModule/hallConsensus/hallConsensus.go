@@ -4,36 +4,43 @@ import(
 	"fmt"
 	"../../elevio"
 	"../generalConsensusModule"
-	"../../network"
+	"../../nodeStatesHandler"
 	)
 
 type Channels struct {
 	NewOrderChan chan elevio.ButtonEvent
 	CompletedOrderChan chan int
 	ConfirmedOrdersChan chan [][] bool
+	LocalOrdersChan chan [][] generalConsensusModule.Req
 }
 
+type LocalHallOrdersMsg struct {
+	ID nodeStatesHandler.NodeID
+	HallOrders [][] generalConsensusModule.Req
+}
+
+// Constructs a matrix with boolean values for the confirmed orders
 func updateConfirmedHallOrders(
 	localHallOrders [][] generalConsensusModule.Req, 
-	confirmedHallOrders *[][] bool, 
-	TurnOffHallLightChan chan<- elevio.ButtonEvent, 
-	TurnOnHallLightChan chan<- elevio.ButtonEvent) {
-
+	confirmedHallOrders *[][] bool) {
+	//TurnOffHallLightChan chan<- elevio.ButtonEvent, 
+	//TurnOnHallLightChan chan<- elevio.ButtonEvent) {
 
 	for floor := range localHallOrders {
 		for orderType := range localHallOrders[floor] {
 
 			if localHallOrders[floor][orderType].State == generalConsensusModule.Confirmed {
-				//Set light if not already set
+				/*//Set light if not already set
 				if !(*confirmedHallOrders)[floor][orderType] {
-					setHallLight(floor, orderType, TurnOnHallLightChan)}	
+					setHallLight(floor, orderType, TurnOnHallLightChan)
+				}*/	
 
 				(*confirmedHallOrders)[floor][orderType] = true
 			} else {
-				//Clear lights if not already cleared
+				/*//Clear lights if not already cleared
 				if (localHallOrders[floor][orderType].State == generalConsensusModule.Inactive) && ((*confirmedHallOrders)[floor][orderType] == true) {
 					clearHallLights(floor, TurnOffHallLightChan) 
-				}
+				}*/
 				(*confirmedHallOrders)[floor][orderType] = false
 			}			
 		}		
@@ -69,22 +76,22 @@ func clearHallLights(currFloor int, TurnOffHallLightChan chan<- elevio.ButtonEve
 
 
 func ConsensusModule(
-	localID network.NodeID,
+	localID nodeStatesHandler.NodeID,
 	numFloors int, 
 	NewOrderChan <-chan elevio.ButtonEvent,
 	ConfirmedOrdersChan chan<- [][] bool,
 	CompletedOrderChan <-chan int, 
-	//peerlistUpdateHallChan <-chan [] network.NodeID,
+	//peerlistUpdateHallChan <-chan [] nodeStatesHandler.NodeID,
 	//RemoteHallOrdersChan <-chan [][] generalConsensusModule.Req,
 	TurnOffHallLightChan chan<- elevio.ButtonEvent,
-	TurnOnHallLightChan chan<- elevio.ButtonEvent) {
-	//HallOrdersToNetworkChan chan<- [][] generalConsensusModule.Req) {
+	TurnOnHallLightChan chan<- elevio.ButtonEvent,
+	LocalOrdersChan chan<- [][] generalConsensusModule.Req) {
 
 	var localHallOrders = make([][] generalConsensusModule.Req, numFloors)
 	var confirmedHallOrders = make([][] bool, numFloors)
 
 	// TODO remove localID
-//	peerlist := [] network.NodeID { localID }
+//	peerlist := [] nodeStatesHandler.NodeID { localID }
 
 
 	// Initialize all localHallOrders to unknown
@@ -101,6 +108,9 @@ func ConsensusModule(
 			confirmedHallOrders[floor] = [] bool{false, false}
 		}
 	}
+	
+	// Send initialized matrix to network module
+	LocalOrdersChan <- localHallOrders
 
 	fmt.Println("(hallConsensusModule) Initialized")
 
@@ -123,14 +133,12 @@ func ConsensusModule(
 
 				localHallOrders[a.Floor][a.Button] = generalConsensusModule.Req {
 					State: generalConsensusModule.PendingAck,
-					AckBy: [] network.NodeID { localID },
+					AckBy: [] nodeStatesHandler.NodeID { localID },
 				}
 
 				// Send updates to network module
-				//HallOrdersToNetworkChan <- localHallOrders
+				LocalOrdersChan <- localHallOrders
 			}
-
-			fmt.Println(localHallOrders)
 
 		// Mark completed orders as inactive and update network module and optimalAssigner
 		case a := <- CompletedOrderChan:
@@ -145,15 +153,13 @@ func ConsensusModule(
 				inactiveReq,
 			}
 
-			fmt.Println(localHallOrders)
+			updateConfirmedHallOrders(localHallOrders, &confirmedHallOrders)
 
-			//updateConfirmedHallOrders(localHallOrders, &confirmedHallOrders, TurnOffHallLightChan, TurnOnHallLightChan)
-			
 			// Send updates to optimalAssigner
 			//ConfirmedOrdersChan <- confirmedHallOrders
 			
 			// Send updates to network module
-			//HallOrdersToNetworkChan <- localHallOrders
+			LocalOrdersChan <- localHallOrders
 
 
 		/*// Received changes in peerlist from network module
@@ -173,7 +179,7 @@ func ConsensusModule(
 				}
 				
 				// Inform network module that changes have been made
-				HallOrdersToNetworkChan <- localHallOrders		
+				OrdersTxChan <- localHallOrders		
 			}*/
 
 		/*// Merge received remoteHallOrders from network module with local data in localHallOrders 
@@ -200,7 +206,7 @@ func ConsensusModule(
 			}
 
 			// Update network module with new data
-			HallOrdersToNetworkChan <- localHallOrders
+			OrdersTxChan <- localHallOrders
 
 			*/
 		}

@@ -15,6 +15,7 @@
 - Rename neworder channels in hallConsensus and cabcons
 	- Change both chans to elevio.ButtonEvent?
 - Rename generalConsensusModukle to consensusFunctions
+- Update channel names with tx and rx
 
 ### DONE
 - Test spamming while initting

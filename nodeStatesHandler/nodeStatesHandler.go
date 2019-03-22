@@ -1,27 +1,31 @@
 package nodeStatesHandler
 
 import (
-//	"fmt"
 	"../fsm"
-	"../network"
 )
+
+type NodeID int
+
+type NodeStateMsg struct {
+	ID NodeID
+	State fsm.NodeState
+}
 
 type NodeStatesHandlerChannels struct {
 	LocalNodeStateChan chan fsm.NodeState
-	RemoteNodeStatesChan chan network.NodeStateMsg
-	AllNodeStatesChan chan map[network.NodeID]fsm.NodeState
-	NodeLostChan chan network.NodeID
+	AllNodeStatesChan chan map[NodeID]fsm.NodeState
+	NodeLostChan chan NodeID
 }
 
 func NodeStatesHandler(
-	localID network.NodeID,
+	localID NodeID,
 	LocalNodeStateFsmChan <-chan fsm.NodeState,
-	RemoteNodeStatesChan <-chan network.NodeStateMsg,
-	AllNodeStatesChan chan<- map[network.NodeID]fsm.NodeState,
-	NodeLost <-chan network.NodeID,
-	BroadcastLocalNodeStateChan chan<- fsm.NodeState) {
+	AllNodeStatesChan chan<- map[NodeID]fsm.NodeState,
+	NodeLost <-chan NodeID,
+	BroadcastLocalNodeStateChan chan<- fsm.NodeState,
+	RemoteNodeStatesChan <-chan NodeStateMsg) {
 	
-	var allNodeStates = make(map[network.NodeID]fsm.NodeState)
+	var allNodeStates = make(map[NodeID]fsm.NodeState)
 
 	for {
 		select {

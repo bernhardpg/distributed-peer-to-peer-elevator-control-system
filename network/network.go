@@ -7,48 +7,58 @@ import (
 	"./driver/peers"
 	"strconv"
 	"../fsm"
+	"../nodeStatesHandler"
+	"../consensusModule/generalConsensusModule"
+	"../consensusModule/hallConsensus"
 )
+
 
 const sendRate = 20 * time.Millisecond
 
-type NodeID int;
-
 type Channels struct {
 	LocalNodeStateChan chan fsm.NodeState
-}
-
-type NodeStateMsg struct {
-	ID NodeID
-	State fsm.NodeState
+	RemoteNodeStatesChan chan nodeStatesHandler.NodeStateMsg
+	LocalHallOrdersChan chan [][] generalConsensusModule.Req
 }
 
 func Module(
-	localID NodeID,
+	localID nodeStatesHandler.NodeID,
 	LocalNodeStateChan <-chan fsm.NodeState,
-	RemoteNodeStatesChan chan<- NodeStateMsg,
-	NodeLostChan chan<- NodeID) {
-
-	// Setup channels and modules for sending and receiving NodeStateMsg
-	// -----
-	localStateTx := make(chan NodeStateMsg)
-	remoteStateRx := make(chan NodeStateMsg, 10) // Does the buffer need to be this high?
-	go bcast.Transmitter(16569, localStateTx)
-	go bcast.Receiver(16569, remoteStateRx)
+	RemoteNodeStatesChan chan<- nodeStatesHandler.NodeStateMsg,
+	NodeLostChan chan<- nodeStatesHandler.NodeID,
+	LocalHallOrdersChan <-chan [][] generalConsensusModule.Req) {
 
 	// Configure Peer List
 	// -----
 	peerUpdateChan := make(chan peers.PeerUpdate)
 	peerTxEnable := make(chan bool) // Used to signal that the node is unavailable
-	go peers.Transmitter(15647, strconv.Itoa(int(localID)), peerTxEnable)
-	go peers.Receiver(15647, peerUpdateChan)
+	go peers.Transmitter(15519, strconv.Itoa(int(localID)), peerTxEnable)
+	go peers.Receiver(15519, peerUpdateChan)
 
-
-	// Handle network traffic
+	// Setup channels and modules for sending and receiving nodeStatesHandler.NodeStateMsg
 	// -----
+	localStateTx := make(chan nodeStatesHandler.NodeStateMsg)
+	remoteStateRx := make(chan nodeStatesHandler.NodeStateMsg, 10) // Does the buffer need to be this high?
+	go bcast.Transmitter(15510, localStateTx)
+	go bcast.Receiver(15510, remoteStateRx)
+
+	// Setup channels and modules for sending and receiving localHallOrder matrices
+	// -----
+	localHallOrdersTx := make(chan hallConsensus.LocalHallOrdersMsg)
+	remoteHallOrdersRx := make(chan hallConsensus.LocalHallOrdersMsg)
+	go bcast.Transmitter(15511, localHallOrdersTx)
+	go bcast.Receiver(15511, remoteHallOrdersRx)
+
+	// Initialize variables
+	// -----
+	bcastPeriod := 200 * time.Millisecond // TODO change this
+	bcastTimer := time.NewTimer(bcastPeriod)
 
 	localState := fsm.NodeState {}
-	bcastPeriod := 200 * time.Millisecond
-	bcastTimer := time.NewTimer(bcastPeriod)
+	localHallOrders := [][] generalConsensusModule.Req {{}}
+	
+	// Handle network traffic
+	// -----
 
 	for {
 		select {
@@ -64,7 +74,7 @@ func Module(
 			if len(a.Lost) != 0 {
 				for _, currIDstr := range a.Lost {
 					currID,_ := strconv.Atoi(currIDstr)
-					NodeLostChan <- NodeID(currID)
+					NodeLostChan <- nodeStatesHandler.NodeID(currID)
 				}
 			}
 
@@ -80,14 +90,24 @@ func Module(
 			// TODO fix comment: Needs localState as well in case we drop out of network and lose ourself
 			RemoteNodeStatesChan <- a
 
+		case a := <- LocalHallOrdersChan:
+			localHallOrders = a
+
+		case a := <- remoteHallOrdersRx:
+			fmt.Println(a)
+
 		case <-bcastTimer.C:
 			bcastTimer.Reset(bcastPeriod)
 
-			localStateTx <- NodeStateMsg {
+			localStateTx <- nodeStatesHandler.NodeStateMsg {
 				ID: localID,
 				State: localState,
 			}
-			
+
+			localHallOrdersTx <- hallConsensus.LocalHallOrdersMsg {
+				ID: localID,
+				HallOrders: localHallOrders,
+			}
 		}
 	}
 }

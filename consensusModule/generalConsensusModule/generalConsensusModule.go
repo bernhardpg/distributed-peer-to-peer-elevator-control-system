@@ -1,12 +1,12 @@
 package generalConsensusModule
 
 import (
-	"../../network"
+	"../../nodeStatesHandler"
 )
 
 type Req struct {
 	State ReqState;
-	AckBy []network.NodeID
+	AckBy []nodeStatesHandler.NodeID
 }
 
 type ReqState int
@@ -17,10 +17,10 @@ const (
 	Unknown
 )
 
-func UniqueIDSlice(IDSlice []network.NodeID) []network.NodeID {
+func UniqueIDSlice(IDSlice []nodeStatesHandler.NodeID) []nodeStatesHandler.NodeID {
 
-    keys := make(map[network.NodeID]bool)
-    list := []network.NodeID{} 
+    keys := make(map[nodeStatesHandler.NodeID]bool)
+    list := []nodeStatesHandler.NodeID{} 
 
     for _, entry := range IDSlice {
         if _, value := keys[entry]; !value {
@@ -31,7 +31,7 @@ func UniqueIDSlice(IDSlice []network.NodeID) []network.NodeID {
     return list
 }
 
-func containsElement(s [] network.NodeID, e network.NodeID) bool {
+func containsElement(s [] nodeStatesHandler.NodeID, e nodeStatesHandler.NodeID) bool {
     for _, a := range s {
         if a == e {
             return true
@@ -41,7 +41,7 @@ func containsElement(s [] network.NodeID, e network.NodeID) bool {
 }
 
 //Returns true if primaryList contains listFraction
-func containsList(primaryList [] network.NodeID, listFraction [] network.NodeID) bool {
+func containsList(primaryList [] nodeStatesHandler.NodeID, listFraction [] nodeStatesHandler.NodeID) bool {
     for _, a := range listFraction {
         if !containsElement(primaryList, a){
         	return false
@@ -50,7 +50,7 @@ func containsList(primaryList [] network.NodeID, listFraction [] network.NodeID)
     return true
 }
 
-func Merge (pLocal *Req, remote Req, localID network.NodeID, peersList [] network.NodeID)(bool){
+func Merge (pLocal *Req, remote Req, localID nodeStatesHandler.NodeID, peersList [] nodeStatesHandler.NodeID)(bool){
 	newConfirmedOrInactiveFlag := false
 
 	switch (*pLocal).State {

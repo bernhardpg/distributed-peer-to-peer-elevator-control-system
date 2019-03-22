@@ -3,7 +3,7 @@ package cabConsensus
 import(
 	"fmt"
 	"../../elevio"
-	"../../network"
+	"../../nodeStatesHandler"
 	"../generalConsensusModule"
 
 )
@@ -14,9 +14,9 @@ type Channels struct {
 }
 
 func updateConfirmedCabOrders(
-	localCabOrders map[network.NodeID] [] generalConsensusModule.Req, 
-	confirmedCabOrders map[network.NodeID][] bool,
-	localID network.NodeID, 
+	localCabOrders map[nodeStatesHandler.NodeID] [] generalConsensusModule.Req, 
+	confirmedCabOrders map[nodeStatesHandler.NodeID][] bool,
+	localID nodeStatesHandler.NodeID, 
 	TurnOffCabLightChan chan<- elevio.ButtonEvent, 
 	TurnOnCabLightChan chan<- elevio.ButtonEvent){
 
@@ -69,22 +69,22 @@ func clearCabLight(currFloor int, TurnOffCabLightChan chan<- elevio.ButtonEvent)
 
 
 func CabOrderConsensus(
-	localID network.NodeID,
+	localID nodeStatesHandler.NodeID,
 	numFloors int, 
 	NewCabOrderChan <-chan int,
 	CompletedCabOrderChan <-chan int,
-	PeersListUpdateCabChan <-chan [] network.NodeID,
-	LostNodeChan <-chan network.NodeID,
-	RemoteCabOrdersChan <-chan map[network.NodeID] [] generalConsensusModule.Req,
+	PeersListUpdateCabChan <-chan [] nodeStatesHandler.NodeID,
+	LostNodeChan <-chan nodeStatesHandler.NodeID,
+	RemoteCabOrdersChan <-chan map[nodeStatesHandler.NodeID] [] generalConsensusModule.Req,
 	TurnOffCabLightChan chan<- elevio.ButtonEvent,
 	TurnOnCabLightChan chan<- elevio.ButtonEvent,
-	ConfirmedCabOrdersToAssignerChan chan<- map[network.NodeID] [] bool,
-	CabOrdersToNetworkChan chan<- map[network.NodeID] [] generalConsensusModule.Req) {
+	ConfirmedCabOrdersToAssignerChan chan<- map[nodeStatesHandler.NodeID] [] bool,
+	CabOrdersToNetworkChan chan<- map[nodeStatesHandler.NodeID] [] generalConsensusModule.Req) {
 
-	var localCabOrders = make(map[network.NodeID] [] generalConsensusModule.Req)
-	var confirmedCabOrders = make(map[network.NodeID] [] bool)
+	var localCabOrders = make(map[nodeStatesHandler.NodeID] [] generalConsensusModule.Req)
+	var confirmedCabOrders = make(map[nodeStatesHandler.NodeID] [] bool)
 
-	peersList := [] network.NodeID{}
+	peersList := [] nodeStatesHandler.NodeID{}
 
 	
 	localCabOrders[localID] = make([] generalConsensusModule.Req, numFloors)
@@ -108,7 +108,7 @@ func CabOrderConsensus(
 
 			localCabOrders[localID][a] = generalConsensusModule.Req {
 					State: generalConsensusModule.PendingAck,
-					AckBy: []network.NodeID{localID},
+					AckBy: []nodeStatesHandler.NodeID{localID},
 			}
 
 

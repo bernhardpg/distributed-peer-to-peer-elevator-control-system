@@ -3,7 +3,7 @@ package optimalOrderAssigner
 import (
 	"../elevio"
 	"../fsm"
-	"../network"
+	"../nodeStatesHandler"
 	"encoding/json"
 	"log"
 	"os"
@@ -38,7 +38,7 @@ func encodeJSON(
 
 	currHallOrders [][]bool,
 	currCabOrders []bool,
-	currAllNodeStates map[network.NodeID] fsm.NodeState)([]byte) {
+	currAllNodeStates map[nodeStatesHandler.NodeID] fsm.NodeState)([]byte) {
 
 	// TODO change currCabOrders to allCabOrders
 
@@ -168,12 +168,12 @@ func clearOrdersAtFloor(
 // The optimal distribution of orders are calculated using an external script, utilizing the state
 // information on each node in addition to all the confirmed orders in the system.
 func Assigner(
-	localID network.NodeID,
+	localID nodeStatesHandler.NodeID,
 	numFloors int,
 	LocallyAssignedOrdersChan chan<- [][]bool,
 	NewOrderChan <-chan elevio.ButtonEvent,
 	CompletedOrderChan <-chan int,
-	AllNodeStatesChan <-chan map[network.NodeID]fsm.NodeState) {
+	AllNodeStatesChan <-chan map[nodeStatesHandler.NodeID]fsm.NodeState) {
 
 
 	// Initialize variables
@@ -194,7 +194,7 @@ func Assigner(
 	}
 
 	optimize := false
-	currAllNodeStates := make(map[network.NodeID] fsm.NodeState);
+	currAllNodeStates := make(map[nodeStatesHandler.NodeID] fsm.NodeState);
 	var currOptimizationInputJSON []byte
 	var optimalAssignedOrders map[string][][]bool
 
