@@ -12,6 +12,7 @@ type Channels struct {
 	CompletedOrderChan chan int
 	ConfirmedOrdersChan chan [][] bool
 	LocalOrdersChan chan [][] generalConsensusModule.Req
+	RemoteOrdersChan chan [][] generalConsensusModule.Req
 }
 
 type LocalHallOrdersMsg struct {
@@ -82,16 +83,16 @@ func ConsensusModule(
 	ConfirmedOrdersChan chan<- [][] bool,
 	CompletedOrderChan <-chan int, 
 	//peerlistUpdateHallChan <-chan [] nodeStatesHandler.NodeID,
-	//RemoteHallOrdersChan <-chan [][] generalConsensusModule.Req,
 	TurnOffHallLightChan chan<- elevio.ButtonEvent,
 	TurnOnHallLightChan chan<- elevio.ButtonEvent,
-	LocalOrdersChan chan<- [][] generalConsensusModule.Req) {
+	LocalOrdersChan chan<- [][] generalConsensusModule.Req,
+	RemoteOrdersChan <-chan [][] generalConsensusModule.Req) {
 
 	var localHallOrders = make([][] generalConsensusModule.Req, numFloors)
 	var confirmedHallOrders = make([][] bool, numFloors)
 
 	// TODO remove localID
-//	peerlist := [] nodeStatesHandler.NodeID { localID }
+	peerlist := [] nodeStatesHandler.NodeID { localID, nodeStatesHandler.NodeID(5) }
 
 
 	// Initialize all localHallOrders to unknown
@@ -179,16 +180,17 @@ func ConsensusModule(
 				}
 				
 				// Inform network module that changes have been made
-				OrdersTxChan <- localHallOrders		
+				LocalOrdersChan <- localHallOrders		
 			}*/
 
-		/*// Merge received remoteHallOrders from network module with local data in localHallOrders 
-		case a := <- RemoteHallOrdersChan:
+		// Merge received remoteHallOrders from network module with local data in localHallOrders 
+		case a := <- RemoteOrdersChan:
 
 			remoteHallOrders := a
 
 			newConfirmedOrInactiveFlag := false
 
+			// Merge world views for every order in HallOrder matrix
 			for floor := range localHallOrders {
 				for orderReq := range localHallOrders[floor] {
 
@@ -201,14 +203,12 @@ func ConsensusModule(
 
 			// Only update confirmedHallOrders when orders are changed to inactive or confirmed
 			if newConfirmedOrInactiveFlag {
-				updateConfirmedHallOrders(localHallOrders, &confirmedHallOrders, TurnOffHallLightChan, TurnOnHallLightChan)
+				updateConfirmedHallOrders(localHallOrders, &confirmedHallOrders)
 				ConfirmedOrdersChan <- confirmedHallOrders
 			}
 
 			// Update network module with new data
-			OrdersTxChan <- localHallOrders
-
-			*/
+			LocalOrdersChan <- localHallOrders
 		}
 	}
 }

@@ -26,7 +26,8 @@ func Module(
 	LocalNodeStateChan <-chan fsm.NodeState,
 	RemoteNodeStatesChan chan<- nodeStatesHandler.NodeStateMsg,
 	NodeLostChan chan<- nodeStatesHandler.NodeID,
-	LocalHallOrdersChan <-chan [][] generalConsensusModule.Req) {
+	LocalHallOrdersChan <-chan [][] generalConsensusModule.Req,
+	RemoteHallOrdersChan chan<- [][] generalConsensusModule.Req) {
 
 	// Configure Peer List
 	// -----
@@ -94,7 +95,7 @@ func Module(
 			localHallOrders = a
 
 		case a := <- remoteHallOrdersRx:
-			fmt.Println(a)
+			RemoteHallOrdersChan <- a.HallOrders
 
 		case <-bcastTimer.C:
 			bcastTimer.Reset(bcastPeriod)
@@ -105,9 +106,11 @@ func Module(
 			}
 
 			localHallOrdersTx <- hallConsensus.LocalHallOrdersMsg {
-				ID: localID,
+				ID: localID, // This is actually never used, but is included for consistency on network
 				HallOrders: localHallOrders,
 			}
+
+			fmt.Println(localHallOrders)
 		}
 	}
 }

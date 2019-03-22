@@ -14,8 +14,9 @@
 - Multiple nodes: Cab and hall orders need to ble cleared the right way
 - Rename neworder channels in hallConsensus and cabcons
 	- Change both chans to elevio.ButtonEvent?
+
 - Rename generalConsensusModukle to consensusFunctions
-- Update channel names with tx and rx
+- IMPORTANT: Handle physical obstruction (timout in fsm, signal to network that node is to be regarded as offline)
 
 ### DONE
 - Test spamming while initting
