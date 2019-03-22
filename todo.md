@@ -8,6 +8,13 @@
 - Comment all code
 - Change peerlist to set?
 - Change iolights -> lightsio
+- Better names for LocalNodeStateChan ?
+- Change all variable declarations from 'var' to i.e. 'localState := fsm.NodeState {}'
+- Change NodeID to string?
+- Multiple nodes: Cab and hall orders need to ble cleared the right way
+- Rename neworder channels in hallConsensus and cabcons
+	- Change both chans to elevio.ButtonEvent?
+- Rename generalConsensusModukle to consensusFunctions
 
 ### DONE
 - Test spamming while initting

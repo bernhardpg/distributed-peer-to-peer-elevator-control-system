@@ -3,12 +3,15 @@ package hallConsensus
 import(
 	"fmt"
 	"../../elevio"
-	"../../stateHandler"
-	"../../fsm"
 	"../generalConsensusModule"
+	"../../network"
 	)
 
-			
+type Channels struct {
+	NewOrderChan chan elevio.ButtonEvent
+	CompletedOrderChan chan int
+}
+
 func updateConfirmedHallOrders(
 	localHallOrders [][] generalConsensusModule.Req, 
 	confirmedHallOrders *[][] bool, 
@@ -17,44 +20,46 @@ func updateConfirmedHallOrders(
 
 
 	for floor := range localHallOrders {
-		for dir := range localHallOrders[floor] {
+		for orderType := range localHallOrders[floor] {
 
-			if localHallOrders[floor][dir].state == Confirmed {
+			if localHallOrders[floor][orderType].State == generalConsensusModule.Confirmed {
 				//Set light if not already set
-				if !(*confirmedHallOrders)[floor][dir]{
-					setHallLight(floor, dir, TurnOnHallLightChan)}	
+				if !(*confirmedHallOrders)[floor][orderType] {
+					setHallLight(floor, orderType, TurnOnHallLightChan)}	
 
-				(*confirmedHallOrders)[floor][dir] = true
-			}else{
+				(*confirmedHallOrders)[floor][orderType] = true
+			} else {
 				//Clear lights if not already cleared
-				if (localHallOrders[floor][dir].state == Inactive) && ((*confirmedHallOrders)[floor][dir] == true){
-					clearHallLights(floor, TurnOffHallLightChan chan<- elevio.ButtonEvent) 
+				if (localHallOrders[floor][orderType].State == generalConsensusModule.Inactive) && ((*confirmedHallOrders)[floor][orderType] == true) {
+					clearHallLights(floor, TurnOffHallLightChan) 
 				}
-				(*confirmedHallOrders)[floor][dir] = false
+				(*confirmedHallOrders)[floor][orderType] = false
 			}			
 		}		
 	}
 }
 
-func setHallLight(currFloor int, dir int, TurnOnHallLightChan chan<- elevio.ButtonEvent) {
+func setHallLight(currFloor int, orderType int, TurnOnHallLightChan chan<- elevio.ButtonEvent) {
+	buttonDir := (elevio.ButtonType)(orderType)
 
-	buttonToIlluminate := elevio.ButtonEvent{
+	buttonToIlluminate := elevio.ButtonEvent {
 		Floor: currFloor,
-		Button: dir,
+		Button: buttonDir,
 	}
 	TurnOnHallLightChan <- buttonToIlluminate
 }
 
-func clearHallLights(currFloor int, TurnOffHallLightChan chan<- elevio.ButtonEvent){
+func clearHallLights(currFloor int, TurnOffHallLightChan chan<- elevio.ButtonEvent) {
 
-	callUpAtFloor := elevio.ButtonEvent{
+
+	callUpAtFloor := elevio.ButtonEvent {
 		Floor: currFloor,
-		Button: BT_HallUp,
+		Button: elevio.BT_HallUp,
 	}
 
-	callDownAtFloor := elevio.ButtonEvent{
+	callDownAtFloor := elevio.ButtonEvent {
 		Floor: currFloor,
-		Button: BT_HallDown,
+		Button: elevio.BT_HallDown,
 	}
 
 	TurnOffHallLightChan <- callDownAtFloor
@@ -63,11 +68,11 @@ func clearHallLights(currFloor int, TurnOffHallLightChan chan<- elevio.ButtonEve
 
 
 func HallOrderConsensus(
-	localID fsm.NodeID,
+	localID network.NodeID,
 	numFloors int, 
 	NewHallOrderChan <-chan elevio.ButtonEvent,
 	CompletedHallOrderChan <-chan int, 
-	PeersListUpdateHallChan <-chan [] fsm.NodeID,
+	PeersListUpdateHallChan <-chan [] network.NodeID,
 	RemoteHallOrdersChan <-chan [][] generalConsensusModule.Req,
 	TurnOffHallLightChan chan<- elevio.ButtonEvent,
 	TurnOnHallLightChan chan<- elevio.ButtonEvent,
@@ -77,7 +82,7 @@ func HallOrderConsensus(
 	var localHallOrders = make([][] generalConsensusModule.Req, numFloors)
 	var confirmedHallOrders = make([][] bool, numFloors)
 
-	peersList := [] fsm.NodeID{}
+	peersList := [] network.NodeID{}
 
 
 	// Initialize all localHallOrders to unknown
@@ -87,8 +92,8 @@ func HallOrderConsensus(
 
 		for orderReq := range localHallOrders[floor] {	
 			localHallOrders[floor][orderReq] = generalConsensusModule.Req {
-				state: Unknown,
-				ackBy: nil,
+				State: generalConsensusModule.Unknown,
+				AckBy: nil,
 			}
 
 			confirmedHallOrders[floor] = [] bool{false, false}
@@ -106,16 +111,16 @@ func HallOrderConsensus(
 
 			// Don't accept new hall orders when alone on network
 			// (Otherwise inactive orders might override confirmed orders when reconnecting to network)
-			if len(peersList <= 1) {
+			if len(peersList) <= 1 {
 				break
 			}
 
 			// Make sure to never access elements outside of array
-			if (a.Button == BT_HallUp || a.Button == BT_HallDown) {
+			if (a.Button == elevio.BT_HallUp || a.Button == elevio.BT_HallDown) {
 
 				localHallOrders[a.Floor][a.Button] = generalConsensusModule.Req {
-					state: PendingAck,
-					ackBy: [] fsm.NodeID { localID },
+					State: generalConsensusModule.PendingAck,
+					AckBy: [] network.NodeID { localID },
 				}
 
 				// Send updates to network module
@@ -127,14 +132,14 @@ func HallOrderConsensus(
 		case a := <- CompletedHallOrderChan:
 
 			inactiveReq := generalConsensusModule.Req {
-				state: Inactive, 
+				State: generalConsensusModule.Inactive, 
 				// Delete ackBy list when transitioning to inactive
-				ackBy: nil,
+				AckBy: nil,
 			}
 
 			localHallOrders[a] = [] generalConsensusModule.Req { inactiveReq, inactiveReq }
 
-			updateConfirmedHallOrders(localHallOrders, &confirmedHallOrders, localID fsm.NodeID, TurnOffHallLightChan, TurnOnHallLightChan)
+			updateConfirmedHallOrders(localHallOrders, &confirmedHallOrders, TurnOffHallLightChan, TurnOnHallLightChan)
 			
 			// Send updates to optimalAssigner
 			ConfirmedHallOrdersToAssignerChan <- confirmedHallOrders
@@ -153,8 +158,8 @@ func HallOrderConsensus(
 				for floor := range localHallOrders {
 					for orderReq := range localHallOrders[floor] {
 
-						if localHallOrders[floor][orderReq].state == Inactive {
-							localHallOrders[floor][orderReq].state = Unknown
+						if localHallOrders[floor][orderReq].State == generalConsensusModule.Inactive {
+							localHallOrders[floor][orderReq].State = generalConsensusModule.Unknown
 						}
 					}
 				}
@@ -176,13 +181,13 @@ func HallOrderConsensus(
 					pLocal := &localHallOrders[floor][orderReq]
 					remote := remoteHallOrders[floor][orderReq]
 
-					newConfirmedOrInactiveFlag = generalConsensusModule.merge(pLocal, remote, localID, peersList)
+					newConfirmedOrInactiveFlag = generalConsensusModule.Merge(pLocal, remote, localID, peersList)
 				}
 			}
 
 			// Only update confirmedHallOrders when orders are changed to inactive or confirmed
 			if newConfirmedOrInactiveFlag {
-				updateConfirmedHallOrders(localHallOrders, &confirmedHallOrders, localID fsm.NodeID, TurnOffHallLightChan, TurnOnHallLightChan)
+				updateConfirmedHallOrders(localHallOrders, &confirmedHallOrders, TurnOffHallLightChan, TurnOnHallLightChan)
 				ConfirmedHallOrdersToAssignerChan <- confirmedHallOrders
 			}
 

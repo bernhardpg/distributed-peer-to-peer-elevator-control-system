@@ -6,6 +6,9 @@ import (
 	"./iolights"
 	"./optimalOrderAssigner"
 	"./nodeStatesHandler"
+	"./network"
+	"./consensusModule/hallConsensus"
+	"./consensusModule/cabConsensus"
 	"fmt"
 )
 
@@ -37,6 +40,14 @@ func main() {
 		RemoteNodeStatesChan: make(chan fsm.NodeState),
 		AllNodeStatesChan: make(chan map[fsm.NodeID] fsm.NodeState),
 	}
+	hallConsensusChns := hallConsensus.Channels {
+		CompletedOrderChan: make(chan int),
+		NewOrderChan: make(chan elevio.ButtonEvent),
+	}
+	cabConsensusChns := cabConsensus.Channels {
+		CompletedOrderChan: make(chan int),
+		NewOrderChan: make(chan int),
+	}
 
 
 	elevio.Init("localhost:15657", numFloors);
@@ -45,18 +56,26 @@ func main() {
 	// -----
 	go elevio.IOReader(
 		numFloors,
-		optimalOrderAssignerChns.NewOrderChan, fsmChns.ArrivedAtFloorChan,
+		hallConsensusChns.NewOrderChan,
+		cabConsensusChns.NewOrderChan,
+		fsmChns.ArrivedAtFloorChan,
 		iolightsChns.FloorIndicatorChan)
 
 	go fsm.StateMachine(
 		localID, numFloors,
 		fsmChns.ArrivedAtFloorChan,
-		optimalOrderAssignerChns.HallOrdersChan, optimalOrderAssignerChns.CabOrdersChan, optimalOrderAssignerChns.LocallyAssignedOrdersChan, optimalOrderAssignerChns.CompletedOrderChan,
+		optimalOrderAssignerChns.LocallyAssignedOrdersChan,
+		optimalOrderAssignerChns.CompletedHallOrderChan,
+		optimalOrderAssignerChns.CompletedCabOrderChan,
 		nodeStatesHandlerChns.LocalNodeStateChan)
 
 	go iolights.LightHandler(
 		numFloors,
-		iolightsChns.TurnOffLightsChan, iolightsChns.TurnOnLightsChan, iolightsChns.FloorIndicatorChan)
+		iolightsChns.TurnOffHallLightChan,
+		iolightsChns.TurnOnHallLightChan,
+		iolightsChns.TurnOffCabLightChan,
+		iolightsChns.TurnOnCabLightChan,
+		iolightsChns.FloorIndicatorChan)
 
 	go nodeStatesHandler.NodeStatesHandler(
 		localID,

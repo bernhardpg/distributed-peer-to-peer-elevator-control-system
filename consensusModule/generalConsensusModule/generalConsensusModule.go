@@ -1,14 +1,12 @@
-package requestConsensus
+package generalConsensusModule
 
 import (
-	"../../fsm"
-	"../../elevio"
+	"../../network"
 )
 
-
 type Req struct {
-	state ReqState;
-	ackBy []fsm.NodeID
+	State ReqState;
+	AckBy []network.NodeID
 }
 
 type ReqState int
@@ -19,10 +17,10 @@ const (
 	Unknown
 )
 
-func uniqueIDSlice(IDSlice []fsm.NodeID) []fsm.NodeID {
+func UniqueIDSlice(IDSlice []network.NodeID) []network.NodeID {
 
-    keys := make(map[fsm.NodeID]bool)
-    list := []fsm.NodeID{} 
+    keys := make(map[network.NodeID]bool)
+    list := []network.NodeID{} 
 
     for _, entry := range IDSlice {
         if _, value := keys[entry]; !value {
@@ -33,7 +31,7 @@ func uniqueIDSlice(IDSlice []fsm.NodeID) []fsm.NodeID {
     return list
 }
 
-func containsElement(s [] fsm.NodeID, e fsm.NodeID) bool {
+func containsElement(s [] network.NodeID, e network.NodeID) bool {
     for _, a := range s {
         if a == e {
             return true
@@ -43,7 +41,7 @@ func containsElement(s [] fsm.NodeID, e fsm.NodeID) bool {
 }
 
 //Returns true if primaryList contains listFraction
-func containsList(primaryList [] fsm.NodeID, listFraction [] fsm.NodeID) bool {
+func containsList(primaryList [] network.NodeID, listFraction [] network.NodeID) bool {
     for _, a := range listFraction {
         if !containsElement(primaryList, a){
         	return false
@@ -52,36 +50,36 @@ func containsList(primaryList [] fsm.NodeID, listFraction [] fsm.NodeID) bool {
     return true
 }
 
-func merge (pLocal *Req, remote Req, localID fsm.NodeID, peersList [] fsm.NodeID)(bool){
+func Merge (pLocal *Req, remote Req, localID network.NodeID, peersList [] network.NodeID)(bool){
 	newConfirmedOrInactiveFlag := false
 
-	switch (*pLocal).state {
+	switch (*pLocal).State {
 
 	case Inactive:
-		if remote.state == PendingAck {
+		if remote.State == PendingAck {
 			*pLocal = Req {
-				state: PendingAck, 
-				ackBy: uniqueIDSlice(append(remote.ackBy, localID)),
+				State: PendingAck, 
+				AckBy: UniqueIDSlice(append(remote.AckBy, localID)),
 			}
 		}
 
 	case PendingAck:
-		(*pLocal).ackBy = uniqueIDSlice(append(remote.ackBy, localID))
+		(*pLocal).AckBy = UniqueIDSlice(append(remote.AckBy, localID))
 
-		if (remote.state == Confirmed) || containsList((*pLocal).ackBy, peersList) {
-			(*pLocal).state = Confirmed
+		if (remote.State == Confirmed) || containsList((*pLocal).AckBy, peersList) {
+			(*pLocal).State = Confirmed
 			newConfirmedOrInactiveFlag = true
 			//Signaliser confirmed
 		}
 		
 
 	case Confirmed:
-		(*pLocal).ackBy = uniqueIDSlice(append(remote.ackBy, localID))
+		(*pLocal).AckBy = UniqueIDSlice(append(remote.AckBy, localID))
 
-		if remote.state == Inactive {
+		if remote.State == Inactive {
 			*pLocal = Req {
-				state: Inactive,
-				ackBy: nil,
+				State: Inactive,
+				AckBy: nil,
 			}
 			newConfirmedOrInactiveFlag = true
 
@@ -89,28 +87,28 @@ func merge (pLocal *Req, remote Req, localID fsm.NodeID, peersList [] fsm.NodeID
 
 
 	case Unknown:
-		switch remote.state {
+		switch remote.State {
 
 
 		case Inactive:
 			*pLocal = Req {
-				state: Inactive,
-				ackBy: nil,
+				State: Inactive,
+				AckBy: nil,
 			}
 			newConfirmedOrInactiveFlag = true
 
 
 		case PendingAck:
 			*pLocal = Req {
-				state: PendingAck,
-				ackBy: uniqueIDSlice(append(remote.ackBy, localID)),
+				State: PendingAck,
+				AckBy: UniqueIDSlice(append(remote.AckBy, localID)),
 			}
 
 
 		case Confirmed:
 			*pLocal = Req {
-				state: Confirmed,
-				ackBy: uniqueIDSlice(append(remote.ackBy, localID)),
+				State: Confirmed,
+				AckBy: UniqueIDSlice(append(remote.AckBy, localID)),
 				//Signaliser confirmed
 			}
 			newConfirmedOrInactiveFlag = true
