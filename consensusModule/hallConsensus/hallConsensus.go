@@ -60,7 +60,6 @@ func setHallLight(currFloor int, orderType int, TurnOnHallLightChan chan<- elevi
 
 func clearHallLights(currFloor int, TurnOffHallLightChan chan<- elevio.ButtonEvent) {
 
-
 	callUpAtFloor := elevio.ButtonEvent {
 		Floor: currFloor,
 		Button: elevio.BT_HallUp,
@@ -92,7 +91,7 @@ func ConsensusModule(
 	var confirmedHallOrders = make([][] bool, numFloors)
 
 	// TODO remove localID
-	peerlist := [] nodeStatesHandler.NodeID { localID, nodeStatesHandler.NodeID(5) }
+	peerlist := [] nodeStatesHandler.NodeID { localID }
 
 
 	// Initialize all localHallOrders to unknown
@@ -110,10 +109,23 @@ func ConsensusModule(
 		}
 	}
 	
+	// Send initialized variables
+	// ------
+
 	// Send initialized matrix to network module
 	LocalOrdersChan <- localHallOrders
 
+	// Create initial confirmedHallOrder matrix
+	updateConfirmedHallOrders(localHallOrders, &confirmedHallOrders)
+	// Send initialized matrix to optimalAssigner
+	ConfirmedOrdersChan <- confirmedHallOrders
+
+
 	fmt.Println("(hallConsensusModule) Initialized")
+
+
+	// Handle consensus when new data enters system
+	// ------
 
 	for {
 
@@ -157,7 +169,7 @@ func ConsensusModule(
 			updateConfirmedHallOrders(localHallOrders, &confirmedHallOrders)
 
 			// Send updates to optimalAssigner
-			//ConfirmedOrdersChan <- confirmedHallOrders
+			ConfirmedOrdersChan <- confirmedHallOrders
 			
 			// Send updates to network module
 			LocalOrdersChan <- localHallOrders
@@ -197,13 +209,16 @@ func ConsensusModule(
 					pLocal := &localHallOrders[floor][orderReq]
 					remote := remoteHallOrders[floor][orderReq]
 
-					newConfirmedOrInactiveFlag = generalConsensusModule.Merge(pLocal, remote, localID, peerlist)
+					// Make flag stay true if set to true once
+					newConfirmedOrInactiveFlag = newConfirmedOrInactiveFlag || generalConsensusModule.Merge(pLocal, remote, localID, peerlist)
 				}
 			}
 
 			// Only update confirmedHallOrders when orders are changed to inactive or confirmed
 			if newConfirmedOrInactiveFlag {
 				updateConfirmedHallOrders(localHallOrders, &confirmedHallOrders)
+				fmt.Printf("(hallConsensus) Address of confirmedHallOrders: %p\n", &confirmedHallOrders)
+
 				ConfirmedOrdersChan <- confirmedHallOrders
 			}
 

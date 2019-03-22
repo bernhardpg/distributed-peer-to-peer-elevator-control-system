@@ -35,7 +35,6 @@ type optimizationInputJSON struct {
 // Encodes the data for HallRequstAssigner script, according to
 // format required by optimization script
 func encodeJSON(
-
 	currHallOrders [][]bool,
 	currCabOrders []bool,
 	currAllNodeStates map[nodeStatesHandler.NodeID] fsm.NodeState)([]byte) {
@@ -171,8 +170,9 @@ func Assigner(
 	localID nodeStatesHandler.NodeID,
 	numFloors int,
 	LocallyAssignedOrdersChan chan<- [][]bool,
-	NewOrderChan <-chan elevio.ButtonEvent,
-	CompletedOrderChan <-chan int,
+	//NewOrderChan <-chan elevio.ButtonEvent, // Will be removed
+	ConfirmedHallOrdersChan <-chan [][] bool,
+	CompletedOrderChan <-chan int, // Will be removed
 	AllNodeStatesChan <-chan map[nodeStatesHandler.NodeID]fsm.NodeState) {
 
 
@@ -205,7 +205,7 @@ func Assigner(
 	for {
 		select {
 
-		// Optimize each time currAllNodeStates are updated
+		// Optimize each time allNodeStates are updated
 		case a := <- AllNodeStatesChan:
 
 			// Don't react if no changes
@@ -216,12 +216,24 @@ func Assigner(
 			currAllNodeStates = a
 			optimize = true
 
-		// Optimize if the new order was not already in the system
-		case a := <- NewOrderChan:
+		/*case a := <- NewOrderChan:
 			// Optimize if something is changed
 			if setOrder(a, currHallOrders, currCabOrders) {
 				optimize = true
-			}
+			}*/
+
+		// Optimize if the new order was not already in the system
+		case a := <- ConfirmedHallOrdersChan:
+
+			/*// TODO implement datatypes!
+			if reflect.DeepEqual(a, currHallOrders) {
+				break
+			}*/
+
+			// Why are these equal?? Because the underlying memory is the same
+
+			currHallOrders = a
+			optimize = true
 
 		// Clear completed orders
 		// (Note: Does not optimize because state is changed on completed orders)

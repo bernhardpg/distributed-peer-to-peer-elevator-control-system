@@ -92,8 +92,7 @@ func main() {
 		hallConsensusChns.NewOrderChan,
 		cabConsensusChns.NewOrderChan,
 		fsmChns.ArrivedAtFloorChan,
-		iolightsChns.FloorIndicatorChan,
-		optimalOrderAssignerChns.NewOrderChan)
+		iolightsChns.FloorIndicatorChan)
 
 	go fsm.StateMachine(
 		numFloors,
@@ -124,7 +123,7 @@ func main() {
 		localID,
 		numFloors,
 		optimalOrderAssignerChns.LocallyAssignedOrdersChan,
-		optimalOrderAssignerChns.NewOrderChan,
+		hallConsensusChns.ConfirmedOrdersChan,
 		optimalOrderAssignerChns.CompletedOrderChan,
 		nodeStatesHandlerChns.AllNodeStatesChan)
 
