@@ -3,38 +3,50 @@ package nodeStatesHandler
 import (
 	"fmt"
 	"../fsm"
+	"../network"
 )
 
 type NodeStatesHandlerChannels struct {
 	LocalNodeStateChan chan fsm.NodeState
-	RemoteNodeStatesChan chan fsm.NodeState
-	AllNodeStatesChan chan map[fsm.NodeID]fsm.NodeState
+	RemoteNodeStatesChan chan network.NodeStateMsg
+	AllNodeStatesChan chan map[network.NodeID]fsm.NodeState
+	NodeLostChan chan network.NodeID
 }
 
-func NodeStatesHandler(localID fsm.NodeID, LocalNodeStateChan <-chan fsm.NodeState, RemoteNodeStatesChan <-chan fsm.NodeState, 
-	AllNodeStatesChan chan<- map[fsm.NodeID]fsm.NodeState) {
-
-//	LocalStateToNetwork := make(chan NodeState)
-
-	var allNodeStates = make(map[fsm.NodeID]fsm.NodeState)
-
-	// TODO remove lost peers from allStates
+func NodeStatesHandler(
+	localID network.NodeID,
+	LocalNodeStateFsmChan <-chan fsm.NodeState,
+	RemoteNodeStatesChan <-chan network.NodeStateMsg,
+	AllNodeStatesChan chan<- map[network.NodeID]fsm.NodeState,
+	NodeLost <-chan network.NodeID,
+	BroadcastLocalNodeStateChan chan<- fsm.NodeState) {
+	
+	var allNodeStates = make(map[network.NodeID]fsm.NodeState)
 
 	for {
 		select {
 
-		case a := <-LocalNodeStateChan:
-			allNodeStates[localID] = a
-//			LocalStateToNetwork <- allNodeStates[localID]
-			AllNodeStatesChan <- allNodeStates
+		// Received localState from FSM
+		case a := <-LocalNodeStateFsmChan:
+			//allNodeStates[localID] = a // TODO remove this? Will already be broadcastet from network
+			BroadcastLocalNodeStateChan <- a
 
+			//AllNodeStatesChan <- allNodeStates // TODO remove this?
+
+		// Received remoteNodeState
 		case a := <-RemoteNodeStatesChan:
-			allNodeStates[a.ID] = a
+			fmt.Println("(nodeStatesHandler) Updating node: ", a.ID, " in allNodeStates")
+			allNodeStates[a.ID] = a.State
 			AllNodeStatesChan <- allNodeStates
 
-			fmt.Println(a)
+			fmt.Println(allNodeStates)
+		
+		// Remove lost nodes from allNodeStates
+		case a := <-NodeLost:
+			delete(allNodeStates, a)
+			fmt.Println("(nodeStatesHandler) Removing node: ", a, " from network")
+			fmt.Println(allNodeStates)
 		}
 
 	}
-
 }

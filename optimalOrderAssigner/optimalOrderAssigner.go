@@ -15,6 +15,7 @@ type OptimalOrderAssignerChannels struct {
 	NewOrderChan              chan elevio.ButtonEvent // TODO move to consensus module
 	LocallyAssignedOrdersChan chan [][]bool
 	CompletedOrderChan        chan int
+
 }
 
 type singleNodeStateJSON struct {
@@ -32,15 +33,18 @@ type optimizationInputJSON struct {
 // Encodes the data for HallRequstAssigner script, according to
 // format required by optimization script
 func encodeJSON(
-	currHallOrdersChan [][]bool,
-	currCabOrdersChan []bool,
-	currAllNodeStatesChan map[fsm.NodeID]fsm.NodeState) []byte {
+
+	currHallOrders [][]bool,
+	currCabOrders []bool,
+	currAllNodeStates map[network.NodeID] fsm.NodeState)([]byte) {
+
+	// TODO change currCabOrders to allCabOrders
 
 	currStates := make(map[string]singleNodeStateJSON)
 
-	for currID, currNodeState := range currAllNodeStatesChan {
-		currBehaviour := ""
-		currDirection := ""
+	for currID, currNodeState := range currAllNodeStates {
+		currBehaviour := "";
+		currDirection := "";
 
 		switch currNodeState.Behaviour {
 
@@ -74,6 +78,7 @@ func encodeJSON(
 	currOptimizationInput := optimizationInputJSON{
 		HallRequests: currHallOrdersChan,
 		States:       currStates,
+
 	}
 
 	currOptimizationInputJSON, _ := json.Marshal(currOptimizationInput)
@@ -161,33 +166,33 @@ func clearOrdersAtFloor(
 // The optimal distribution of orders are calculated using an external script, utilizing the state
 // information on each node in addition to all the confirmed orders in the system.
 func Assigner(
-	localID fsm.NodeID,
+	localID network.NodeID,
 	numFloors int,
-	HallOrdersChanChan <-chan [][]bool,
-	CabOrdersChanChan <-chan []bool,
 	LocallyAssignedOrdersChan chan<- [][]bool,
 	NewOrderChan <-chan elevio.ButtonEvent,
 	CompletedOrderChan <-chan int,
 	AllNodeStatesChan <-chan map[fsm.NodeID]fsm.NodeState) {
 
+
 	// Initialize variables
 	//-------
-	currHallOrdersChan := make([][]bool, numFloors)
-	currCabOrdersChan := make([]bool, numFloors)
 
-	for floor := range currHallOrdersChan {
-		currHallOrdersChan[floor] = make([]bool, 2)
+	currHallOrders := make([][] bool, numFloors); 
+	currCabOrders := make([] bool, numFloors);
+
+	for floor := range currHallOrders {
+		currHallOrders[floor] = make([] bool, 2)
 	}
 
-	for floor := range currHallOrdersChan {
-		for orderType := range currHallOrdersChan[floor] {
-			currHallOrdersChan[floor][orderType] = false
+	for floor := range currHallOrders {
+		for orderType := range currHallOrders[floor] {
+			currHallOrders[floor][orderType] = false
 		}
-		currCabOrdersChan[floor] = false
+		currCabOrders[floor] = false
 	}
 
 	optimize := false
-	currAllNodeStatesChan := make(map[fsm.NodeID]fsm.NodeState)
+	currAllNodeStates := make(map[network.NodeID] fsm.NodeState);
 	var currOptimizationInputJSON []byte
 	var optimalAssignedOrders map[string][][]bool
 
@@ -199,34 +204,34 @@ func Assigner(
 		select {
 
 		// Optimize each time currAllNodeStates are updated
-		case a := <-AllNodeStatesChan:
-			currAllNodeStatesChan = a
+		case a := <- AllNodeStatesChan:
+			currAllNodeStates = a
 			optimize = true
 
 		// Optimize if the new order was not already in the system
-		case a := <-NewOrderChan:
+		case a := <- NewOrderChan:
 			// Optimize if something is changed
-			if setOrder(a, currHallOrdersChan, currCabOrdersChan) {
+			if setOrder(a, currHallOrders, currCabOrders) {
 				optimize = true
 			}
 
 		// Clear completed orders
 		// TODO shouldn't this also set the optimize flag?
 		case a := <-CompletedOrderChan:
-			clearOrdersAtFloor(a, currHallOrdersChan, currCabOrdersChan)
+			clearOrdersAtFloor(a, currHallOrders, currCabOrders)
 
 		default:
 			// TODO is this necessary?
 		}
 
-		// Calculate optimal AssignedLocalOrders when new data has arrived and states have been initialized
-		if optimize && len(currAllNodeStatesChan) != 0 {
+		// Calculate optimal AssignedLocalOrders when new data has arrived and states have been initialized 
+		if optimize && len(currAllNodeStates) != 0 {
 			optimize = false
 
 			// Calculate new optimalAssignedOrders time a message is received
-			currOptimizationInputJSON = encodeJSON(currHallOrdersChan, currCabOrdersChan, currAllNodeStatesChan)
-			outJSON := runOptimizer(currOptimizationInputJSON)
-			json.Unmarshal(outJSON, &optimalAssignedOrders)
+			currOptimizationInputJSON = encodeJSON(currHallOrders, currCabOrders, currAllNodeStates);
+			outJSON := runOptimizer(currOptimizationInputJSON);
+			json.Unmarshal(outJSON, &optimalAssignedOrders);
 
 			currLocallyAssignedOrders := optimalAssignedOrders[string(localID)]
 

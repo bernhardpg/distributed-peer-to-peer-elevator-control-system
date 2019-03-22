@@ -10,12 +10,35 @@ import (
 	"./consensusModule/hallConsensus"
 	"./consensusModule/cabConsensus"
 	"fmt"
+	"flag"
+	"strconv"
 )
 
 
 func main() {
-	var localID fsm.NodeID = 1;
+	
 	numFloors := 4;
+
+	// ID Handling
+	// ------
+
+	// Pass the ID in the command line with `go run main.go -id=our_id`
+	IDptr := flag.Int("id", 1, "LocalID of the node");
+	// Pass the port number in the command line with `go run main.go -port=our_id`
+	portPtr := flag.Int("port", 15657, "Port for connecting to elevator");
+
+	flag.Parse()
+
+	localID := (network.NodeID)(*IDptr)
+	port := *portPtr
+
+	fmt.Println("(main) localID:", localID)
+	fmt.Println("(main) port:", port)
+
+	// Connect to elevator through tcp (either hardware or simulator)
+	// -----
+	elevio.Init("localhost:" + strconv.Itoa(port), numFloors);
+
 
 	// Init channels
 	// -----
@@ -28,8 +51,6 @@ func main() {
 		FloorIndicatorChan: make(chan int),
 	}
 	optimalOrderAssignerChns := optimalOrderAssigner.OptimalOrderAssignerChannels {
-		HallOrdersChan: make(chan [][] bool),
-		CabOrdersChan: make(chan [] bool),
 		NewOrderChan: make(chan elevio.ButtonEvent), // TODO move to consensus module
 		CompletedOrderChan: make(chan int),
 		LocallyAssignedOrdersChan: make(chan [][] bool, 2),
@@ -37,8 +58,12 @@ func main() {
 	}
 	nodeStatesHandlerChns := nodeStatesHandler.NodeStatesHandlerChannels {
 		LocalNodeStateChan: make(chan fsm.NodeState),
-		RemoteNodeStatesChan: make(chan fsm.NodeState),
-		AllNodeStatesChan: make(chan map[fsm.NodeID] fsm.NodeState),
+		RemoteNodeStatesChan: make(chan network.NodeStateMsg, 2),
+		AllNodeStatesChan: make(chan map[network.NodeID] fsm.NodeState, 2),
+		NodeLostChan: make(chan network.NodeID),
+	}
+	networkChns := network.Channels {
+		LocalNodeStateChan: make(chan fsm.NodeState),
 	}
 	hallConsensusChns := hallConsensus.Channels {
 		CompletedOrderChan: make(chan int),
@@ -49,8 +74,8 @@ func main() {
 		NewOrderChan: make(chan int),
 	}
 
+	// TODO Double check channel buffering!
 
-	elevio.Init("localhost:15657", numFloors);
 
 	// Start modules
 	// -----
@@ -59,15 +84,17 @@ func main() {
 		hallConsensusChns.NewOrderChan,
 		cabConsensusChns.NewOrderChan,
 		fsmChns.ArrivedAtFloorChan,
-		iolightsChns.FloorIndicatorChan)
+		iolightsChns.FloorIndicatorChan,
+		optimalOrderAssignerChns.NewOrderChan)
 
 	go fsm.StateMachine(
-		localID, numFloors,
+		numFloors,
 		fsmChns.ArrivedAtFloorChan,
 		optimalOrderAssignerChns.LocallyAssignedOrdersChan,
 		optimalOrderAssignerChns.CompletedHallOrderChan,
 		optimalOrderAssignerChns.CompletedCabOrderChan,
-		nodeStatesHandlerChns.LocalNodeStateChan)
+		nodeStatesHandlerChns.LocalNodeStateChan,
+		optimalOrderAssignerChns.CompletedOrderChan)
 
 	go iolights.LightHandler(
 		numFloors,
@@ -79,16 +106,25 @@ func main() {
 
 	go nodeStatesHandler.NodeStatesHandler(
 		localID,
-		nodeStatesHandlerChns.LocalNodeStateChan, nodeStatesHandlerChns.RemoteNodeStatesChan,
-		nodeStatesHandlerChns.AllNodeStatesChan)
+		nodeStatesHandlerChns.LocalNodeStateChan,
+		nodeStatesHandlerChns.RemoteNodeStatesChan,
+		nodeStatesHandlerChns.AllNodeStatesChan,
+		nodeStatesHandlerChns.NodeLostChan,
+		networkChns.LocalNodeStateChan)
 
 	go optimalOrderAssigner.Assigner(
-		localID, numFloors,
-		optimalOrderAssignerChns.HallOrdersChan, optimalOrderAssignerChns.CabOrdersChan,
-		optimalOrderAssignerChns.LocallyAssignedOrdersChan, optimalOrderAssignerChns.NewOrderChan,
+		localID,
+		numFloors,
+		optimalOrderAssignerChns.LocallyAssignedOrdersChan,
+		optimalOrderAssignerChns.NewOrderChan,
 		optimalOrderAssignerChns.CompletedOrderChan,
-		nodeStatesHandlerChns.AllNodeStatesChan,
-		iolightsChns.TurnOffLightsChan, iolightsChns.TurnOnLightsChan)
+		nodeStatesHandlerChns.AllNodeStatesChan)
+
+	go network.Module(
+		localID,
+		networkChns.LocalNodeStateChan,
+		nodeStatesHandlerChns.RemoteNodeStatesChan,
+		nodeStatesHandlerChns.NodeLostChan)
 
 	fmt.Println("(main) Started all modules");
 
