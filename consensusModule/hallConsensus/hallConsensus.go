@@ -122,9 +122,9 @@ func ConsensusModule(
 
 			// Don't accept new hall orders when alone on network
 			// (Otherwise inactive orders might override confirmed orders when reconnecting to network)
-			if len(peerlist) <= 1 {
+			/*if len(peerlist) <= 1 {
 				break
-			}
+			}*/
 
 			// Set order to pendingAck
 			// (Make sure to never access elements outside of array)
@@ -137,11 +137,15 @@ func ConsensusModule(
 
 				// Send updates to network module
 				LocalOrdersChan <- localHallOrders
+
 			}
+
 
 		// Mark completed orders as inactive and update network module and optimalAssigner
 		// with all confirmedHallOrders
 		case a := <- CompletedOrderChan:
+			
+			clearHallLights(a, TurnOffHallLightChan)
 
 			// Set both dir Up and dir Down to inactive
 			inactiveReq := datatypes.Req {
@@ -170,10 +174,10 @@ func ConsensusModule(
 			// Set all inactive hall orders to unknown if alone on network
 			if len(peerlist) <= 1 {
 				for floor := range localHallOrders {
-					for orderReq := range localHallOrders[floor] {
+					for orderType := range localHallOrders[floor] {
 
-						if localHallOrders[floor][orderReq].State == datatypes.Inactive {
-							localHallOrders[floor][orderReq].State = datatypes.Unknown
+						if localHallOrders[floor][orderType].State == datatypes.Inactive {
+							localHallOrders[floor][orderType].State = datatypes.Unknown
 						}
 					}
 				}
@@ -190,22 +194,30 @@ func ConsensusModule(
 
 			remoteHallOrders := a
 
-			newConfirmedOrInactiveFlag := false
+			confirmedOrdersChangedFlag := false
 
 			// Merge world views for every order in HallOrder matrix
 			for floor := range localHallOrders {
-				for orderReq := range localHallOrders[floor] {
+				for orderType := range localHallOrders[floor] {
 
-					pLocal := &localHallOrders[floor][orderReq]
-					remote := remoteHallOrders[floor][orderReq]
+					pLocal := &localHallOrders[floor][orderType]
+					remote := remoteHallOrders[floor][orderType]
+
+					newInactiveFlag, newConfirmedFlag := generalConsensusModule.Merge(pLocal, remote, localID, peerlist)
 
 					// Make flag stay true if set to true once
-					newConfirmedOrInactiveFlag = newConfirmedOrInactiveFlag || generalConsensusModule.Merge(pLocal, remote, localID, peerlist)
+					confirmedOrdersChangedFlag = confirmedOrdersChangedFlag || newInactiveFlag || newConfirmedFlag
+
+					if newInactiveFlag {
+						clearHallLights(floor, TurnOffHallLightChan)
+					} else if newConfirmedFlag {
+						setHallLight(floor, orderType, TurnOnHallLightChan)
+					}
 				}
 			}
 
 			// Only update confirmedHallOrders when orders are changed to inactive or confirmed
-			if newConfirmedOrInactiveFlag {
+			if confirmedOrdersChangedFlag {
 				updateConfirmedHallOrders(localHallOrders, &confirmedHallOrders)
 
 				ConfirmedOrdersChan <- confirmedHallOrders
@@ -213,6 +225,7 @@ func ConsensusModule(
 
 			// Update network module with new data
 			LocalOrdersChan <- localHallOrders
+			fmt.Println(localHallOrders)
 		}
 	}
 }

@@ -37,8 +37,9 @@ func containsList(primaryList [] datatypes.NodeID, listFraction [] datatypes.Nod
     return true
 }
 
-func Merge (pLocal *datatypes.Req, remote datatypes.Req, localID datatypes.NodeID, peersList [] datatypes.NodeID)(bool){
-	newConfirmedOrInactiveFlag := false
+func Merge (pLocal *datatypes.Req, remote datatypes.Req, localID datatypes.NodeID, peersList [] datatypes.NodeID) (bool, bool) {
+	newConfirmedFlag := false
+	newInactiveFlag := false
 
 	switch (*pLocal).State {
 
@@ -55,8 +56,7 @@ func Merge (pLocal *datatypes.Req, remote datatypes.Req, localID datatypes.NodeI
 
 		if (remote.State == datatypes.Confirmed) || containsList((*pLocal).AckBy, peersList) {
 			(*pLocal).State = datatypes.Confirmed
-			newConfirmedOrInactiveFlag = true
-			//Signaliser datatypes.Confirmed
+			newConfirmedFlag = true
 		}
 		
 
@@ -68,8 +68,7 @@ func Merge (pLocal *datatypes.Req, remote datatypes.Req, localID datatypes.NodeI
 				State: datatypes.Inactive,
 				AckBy: nil,
 			}
-			newConfirmedOrInactiveFlag = true
-
+			newInactiveFlag = true
 		}
 
 
@@ -82,7 +81,7 @@ func Merge (pLocal *datatypes.Req, remote datatypes.Req, localID datatypes.NodeI
 				State: datatypes.Inactive,
 				AckBy: nil,
 			}
-			newConfirmedOrInactiveFlag = true
+			newInactiveFlag = true
 
 
 		case datatypes.PendingAck:
@@ -98,10 +97,10 @@ func Merge (pLocal *datatypes.Req, remote datatypes.Req, localID datatypes.NodeI
 				AckBy: UniqueIDSlice(append(remote.AckBy, localID)),
 				//Signaliser datatypes.Confirmed
 			}
-			newConfirmedOrInactiveFlag = true
+			newConfirmedFlag = true
 
 		}
 	}
 	
-	return newConfirmedOrInactiveFlag
+	return newInactiveFlag, newConfirmedFlag
 }

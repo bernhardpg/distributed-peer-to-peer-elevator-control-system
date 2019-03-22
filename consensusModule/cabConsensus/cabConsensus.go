@@ -167,7 +167,7 @@ func CabOrderConsensus(
 					pLocal := &localCabOrders[remoteID][floor]
 					remote := remoteCabOrders[remoteID][floor]
 
-					newConfirmedOrInactiveFlag = generalConsensusModule.Merge(pLocal, remote, localID, peersList)
+					newConfirmedOrInactiveFlag,_ = generalConsensusModule.Merge(pLocal, remote, localID, peersList)
 				}
 
 				    			
