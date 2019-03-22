@@ -20,8 +20,10 @@ const (
 )
 
 func uniqueIDSlice(IDSlice []fsm.NodeID) []fsm.NodeID {
+
     keys := make(map[fsm.NodeID]bool)
     list := []fsm.NodeID{} 
+
     for _, entry := range IDSlice {
         if _, value := keys[entry]; !value {
             keys[entry] = true
@@ -66,7 +68,7 @@ func merge (pLocal *Req, remote Req, localID fsm.NodeID, peersList [] fsm.NodeID
 	case PendingAck:
 		(*pLocal).ackBy = uniqueIDSlice(append(remote.ackBy, localID))
 
-		if remote.state == Confirmed || containsList((*pLocal).ackBy, peersList) {
+		if (remote.state == Confirmed) || containsList((*pLocal).ackBy, peersList) {
 			(*pLocal).state = Confirmed
 			newConfirmedOrInactiveFlag = true
 			//Signaliser confirmed
@@ -96,7 +98,6 @@ func merge (pLocal *Req, remote Req, localID fsm.NodeID, peersList [] fsm.NodeID
 				ackBy: nil,
 			}
 			newConfirmedOrInactiveFlag = true
-
 
 
 		case PendingAck:

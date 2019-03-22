@@ -8,6 +8,7 @@
 - Everything crashes when starting elevator outside boundaries
 - Comment all code
 - Test spamming while initting
+- Change peerlist to set?
 
 ### DONE
 - Change elevState to elevBehaviour or something

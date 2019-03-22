@@ -16,8 +16,10 @@ type LightsChannels struct {
 // GoRoutine for controller the lights of a single elevator
 func LightHandler(
 	numFloors int,
-	TurnOffLights <-chan elevio.ButtonEvent,
-	TurnOnLights <-chan elevio.ButtonEvent,
+	TurnOffHallLight <-chan elevio.ButtonEvent,
+	TurnOnHallLight <-chan elevio.ButtonEvent,
+	TurnOffCabLight <-chan elevio.ButtonEvent,
+	TurnOnCabLight <-chan elevio.ButtonEvent,
 	FloorIndicator <-chan int) {
 	// Turn off all lights at init
 	for floor := 0; floor < numFloors; floor++ {
@@ -28,9 +30,13 @@ func LightHandler(
 
 	for {
 		select {
-		case a := <- TurnOffLights:
+		case a := <- TurnOffHallLight:
 			elevio.SetButtonLamp(a.Button, a.Floor, false);
-		case a := <- TurnOnLights:
+		case a := <- TurnOnHallLight:
+			elevio.SetButtonLamp(a.Button, a.Floor, true);
+		case a := <- TurnOffCabLight:
+			elevio.SetButtonLamp(a.Button, a.Floor, false);
+		case a := <- TurnOnCabLight:
 			elevio.SetButtonLamp(a.Button, a.Floor, true);
 		case a := <- FloorIndicator:
 			elevio.SetFloorIndicator(a);

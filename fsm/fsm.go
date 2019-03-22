@@ -36,36 +36,6 @@ type NodeState struct {
 
 type NodeID int;
 
-/*// TODO move these data types to correct file!
-type ReqState int;
-const (
-	Unknown ReqState = iota;
-	Inactive
-	PendingAck
-	Confirmed
-)
-
-type nodeId int;
-
-type Req struct {
-	behaviour ReqState;
-	ackBy []nodeId;
-}*/
-
-	
-// Initialize locally assigned orders matrix
-/*var locallyAssignedOrders = make([][]Req, numFloors);
-for i := range assignedOrders {
-	assignedOrders[i] = make([]Req, numStates);
-}
-
-// Initialize all to unknown
-for floor := range assignedOrders {
-	for orderType := range assignedOrders[floor] {
-		assignedOrders[floor][orderType].behaviour = Unknown;
-	}
-}*/
-
 func calculateNextOrder(behaviour NodeBehaviour, currFloor int, currDir OrderDir, assignedOrders [][] bool) (int) {
 	numFloors := len(assignedOrders);
 	skipCurrFloor := 0;
@@ -184,7 +154,8 @@ func StateMachine(
 	HallOrderChan chan<- [][] bool,
 	CabOrderChan chan<- [] bool,
 	LocallyAssignedOrdersChan <-chan [][] bool,
-	CompletedOrderChan chan<- int,
+	CompletedHallOrderChan chan<- int,
+	CompletedCabOrderChan chan<- int,
 	LocalNodeStateChan chan<- NodeState) {
 
 	// Initialize variables	
@@ -249,7 +220,8 @@ func StateMachine(
 			// Mark the current floor as complete if doors already open in desired floor
 			// (Necessary to handle button spamming in same floor)
 			if behaviour == DoorOpenState && currOrder == currFloor {
-				CompletedOrderChan <- currFloor
+				CompletedHallOrderChan <- currFloor
+				CompletedCabOrderChan <- currFloor
 			}
 
 			// Only react to changes
@@ -275,9 +247,10 @@ func StateMachine(
 				fmt.Println("(fsm) Init complete");
 			}
 
-			// Open doors at desired floor			
+			// Open doors at desired floor and signal that the order is complete
 			if currFloor == currOrder {
-				CompletedOrderChan <- currFloor
+				CompletedHallOrderChan <- currFloor
+				CompletedCabOrderChan <- currFloor
 				nextBehaviour = DoorOpenState
 				break;
 			}
@@ -315,7 +288,8 @@ func StateMachine(
 
 					// Go directly to doorOpenState if already at desired floor and not moving
 					if currOrder == currFloor && behaviour != MovingState {
-						CompletedOrderChan <- currFloor
+						CompletedHallOrderChan <- currFloor
+						CompletedCabOrderChan <- currFloor
 						nextBehaviour = DoorOpenState
 						updateState = true
 						break
