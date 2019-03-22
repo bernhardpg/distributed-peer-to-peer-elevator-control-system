@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"reflect"
 )
 
 type OptimalOrderAssignerChannels struct {
@@ -206,6 +207,12 @@ func Assigner(
 
 		// Optimize each time currAllNodeStates are updated
 		case a := <- AllNodeStatesChan:
+
+			// Don't react if no changes
+			if reflect.DeepEqual(a, currAllNodeStates) {
+				break
+			}
+
 			currAllNodeStates = a
 			optimize = true
 
@@ -217,8 +224,8 @@ func Assigner(
 			}
 
 		// Clear completed orders
-		// TODO shouldn't this also set the optimize flag?
-		case a := <-CompletedOrderChan:
+		// (Note: Does not optimize because state is changed on completed orders)
+		case a := <- CompletedOrderChan:
 			clearOrdersAtFloor(a, currHallOrders, currCabOrders)
 
 		default:

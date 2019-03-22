@@ -3,7 +3,6 @@ package fsm
 import (
 	"../elevio"
 	"time"
-	"fmt"
 	"reflect"
 )
 
@@ -194,6 +193,7 @@ func StateMachine(
 		// Time to close door
 		case <- doorTimer.C:
 
+
 			// Don't react while initing
 			if behaviour == InitState {
 				break;
@@ -208,6 +208,8 @@ func StateMachine(
 				nextBehaviour = IdleState
 			}
 
+// NOTE! Will currently get stuck with open doors ebcause orders are not currently cleared
+
 		// Receive optimally calculated orders for this node from optimalOrderAssigner 
 		case a := <- LocallyAssignedOrdersChan:
 
@@ -215,7 +217,7 @@ func StateMachine(
 			// (Necessary to handle button spamming in same floor)
 			if behaviour == DoorOpenState && currOrder == currFloor {
 				CompletedHallOrderChan <- currFloor
-				CompletedCabOrderChan <- currFloor
+//				CompletedCabOrderChan <- currFloor
 				CompletedOrderChan <- currFloor // TODO remove
 			}
 
@@ -233,19 +235,17 @@ func StateMachine(
 
 		// Elevator arrives at a floor
 		case a := <- ArrivedAtFloorChan:
-			
 			currFloor = a;
 
 			// Finish init sequence
 			if behaviour == InitState {
 				nextBehaviour = IdleState
-				fmt.Println("(fsm) Init complete");
 			}
 
 			// Open doors at desired floor and signal that the order is complete
 			if currFloor == currOrder {
 				CompletedHallOrderChan <- currFloor
-				CompletedCabOrderChan <- currFloor
+//				CompletedCabOrderChan <- currFloor
 				CompletedOrderChan <- currFloor // TODO remove
 				nextBehaviour = DoorOpenState
 				break;
@@ -285,7 +285,7 @@ func StateMachine(
 					// Go directly to doorOpenState if already at desired floor and not moving
 					if currOrder == currFloor && behaviour != MovingState {
 						CompletedHallOrderChan <- currFloor
-						CompletedCabOrderChan <- currFloor
+//						CompletedCabOrderChan <- currFloor
 						CompletedOrderChan <- currFloor // TODO remove
 						nextBehaviour = DoorOpenState
 						updateState = true

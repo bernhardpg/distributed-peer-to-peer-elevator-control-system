@@ -1,7 +1,7 @@
 package nodeStatesHandler
 
 import (
-	"fmt"
+//	"fmt"
 	"../fsm"
 	"../network"
 )
@@ -35,17 +35,17 @@ func NodeStatesHandler(
 
 		// Received remoteNodeState
 		case a := <-RemoteNodeStatesChan:
-			fmt.Println("(nodeStatesHandler) Updating node: ", a.ID, " in allNodeStates")
+//			fmt.Println("(nodeStatesHandler) Updating node: ", a.ID, " in allNodeStates")
 			allNodeStates[a.ID] = a.State
 			AllNodeStatesChan <- allNodeStates
 
-			fmt.Println(allNodeStates)
+//			fmt.Println(allNodeStates)
 		
 		// Remove lost nodes from allNodeStates
 		case a := <-NodeLost:
 			delete(allNodeStates, a)
-			fmt.Println("(nodeStatesHandler) Removing node: ", a, " from network")
-			fmt.Println(allNodeStates)
+//			fmt.Println("(nodeStatesHandler) Removing node: ", a, " from network")
+//			fmt.Println(allNodeStates)
 		}
 
 	}

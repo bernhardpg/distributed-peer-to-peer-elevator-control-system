@@ -72,6 +72,7 @@ func main() {
 	hallConsensusChns := hallConsensus.Channels {
 		CompletedOrderChan: make(chan int),
 		NewOrderChan: make(chan elevio.ButtonEvent),
+		ConfirmedOrdersChan: make(chan [][] bool),
 	}
 	cabConsensusChns := cabConsensus.Channels {
 		CompletedOrderChan: make(chan int),
@@ -129,6 +130,16 @@ func main() {
 		networkChns.LocalNodeStateChan,
 		nodeStatesHandlerChns.RemoteNodeStatesChan,
 		nodeStatesHandlerChns.NodeLostChan)
+
+	go hallConsensus.ConsensusModule(
+		localID,
+		numFloors,
+		hallConsensusChns.NewOrderChan,
+		hallConsensusChns.ConfirmedOrdersChan,
+		hallConsensusChns.CompletedOrderChan,
+		iolightsChns.TurnOffHallLightChan,
+		iolightsChns.TurnOnHallLightChan,
+		)
 
 	fmt.Println("(main) Started all modules");
 
