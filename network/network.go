@@ -27,7 +27,8 @@ func Module(
 	RemoteNodeStatesChan chan<- nodeStatesHandler.NodeStateMsg,
 	NodeLostChan chan<- datatypes.NodeID,
 	LocalHallOrdersChan <-chan datatypes.HallOrdersMatrix,
-	RemoteHallOrdersChan chan<- datatypes.HallOrdersMatrix) {
+	RemoteHallOrdersChan chan<- datatypes.HallOrdersMatrix,
+	PeerlistUpdateHallChan chan<- [] datatypes.NodeID) {
 
 	// Configure Peer List
 	// -----
@@ -71,13 +72,27 @@ func Module(
 			fmt.Printf("  New:      %q\n", a.New)
 			fmt.Printf("  Lost:     %q\n", a.Lost)
 
-			// Inform NodeStatesHandler that one ore more nodes are lost from the network
+			// Inform NodeStatesHandler and consensusModules that one ore more nodes are lost from the network
 			if len(a.Lost) != 0 {
 				for _, currIDstr := range a.Lost {
 					currID,_ := strconv.Atoi(currIDstr)
-					NodeLostChan <- datatypes.NodeID(currID)
+					NodeLostChan <- (datatypes.NodeID)(currID)
 				}
 			}
+
+			// Notify consensus modules of changes
+			if len(a.Lost) != 0 || len(a.New) != 0 {
+				var peerlist [] datatypes.NodeID
+
+				for _, currIDstr := range a.Peers {
+					currID,_ := strconv.Atoi(currIDstr)
+					peerlist = append(peerlist, (datatypes.NodeID)(currID))
+				}
+
+				PeerlistUpdateHallChan <- peerlist
+				// TODO cabOrders here
+			}
+			
 
 		// Transmit local state
 		case a := <-LocalNodeStateChan:
@@ -109,8 +124,6 @@ func Module(
 				ID: localID, // This is actually never used, but is included for consistency on network
 				HallOrders: localHallOrders,
 			}
-
-			fmt.Println(localHallOrders)
 		}
 	}
 }

@@ -76,6 +76,7 @@ func main() {
 		ConfirmedOrdersChan: make(chan datatypes.ConfirmedHallOrdersMatrix),
 		LocalOrdersChan: make(chan datatypes.HallOrdersMatrix, 2),
 		RemoteOrdersChan: make(chan datatypes.HallOrdersMatrix),
+		PeerlistUpdateChan: make(chan []datatypes.NodeID),
 	}
 	cabConsensusChns := cabConsensus.Channels {
 		CompletedOrderChan: make(chan int),
@@ -130,7 +131,8 @@ func main() {
 		networkChns.RemoteNodeStatesChan,
 		nodeStatesHandlerChns.NodeLostChan,
 		hallConsensusChns.LocalOrdersChan,
-		hallConsensusChns.RemoteOrdersChan)
+		hallConsensusChns.RemoteOrdersChan,
+		hallConsensusChns.PeerlistUpdateChan)
 
 
 	go hallConsensus.ConsensusModule(
@@ -142,7 +144,7 @@ func main() {
 		iolightsChns.TurnOnHallLightChan,
 		hallConsensusChns.LocalOrdersChan,
 		hallConsensusChns.RemoteOrdersChan,
-		)
+		hallConsensusChns.PeerlistUpdateChan)
 
 	fmt.Println("(main) Started all modules");
 

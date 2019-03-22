@@ -13,6 +13,7 @@ type Channels struct {
 	ConfirmedOrdersChan chan datatypes.ConfirmedHallOrdersMatrix
 	LocalOrdersChan chan datatypes.HallOrdersMatrix
 	RemoteOrdersChan chan datatypes.HallOrdersMatrix
+	PeerlistUpdateChan chan []datatypes.NodeID
 }
 
 type LocalHallOrdersMsg struct {
@@ -80,19 +81,19 @@ func ConsensusModule(
 	NewOrderChan <-chan elevio.ButtonEvent,
 	ConfirmedOrdersChan chan<- datatypes.ConfirmedHallOrdersMatrix,
 	CompletedOrderChan <-chan int, 
-	//peerlistUpdateHallChan <-chan [] datatypes.NodeID,
 	TurnOffHallLightChan chan<- elevio.ButtonEvent,
 	TurnOnHallLightChan chan<- elevio.ButtonEvent,
 	LocalOrdersChan chan<- datatypes.HallOrdersMatrix,
-	RemoteOrdersChan <-chan datatypes.HallOrdersMatrix) {
+	RemoteOrdersChan <-chan datatypes.HallOrdersMatrix,
+	PeerlistUpdateChan <-chan [] datatypes.NodeID) {
 
 	// All orders will be initialized to Unknown (zero-state)
 	var localHallOrders datatypes.HallOrdersMatrix
-	
+
 	var confirmedHallOrders datatypes.ConfirmedHallOrdersMatrix
 
 	// TODO remove localID
-	peerlist := [] datatypes.NodeID { localID }
+	peerlist := [] datatypes.NodeID {}
 	
 	// Send initialized variables
 	// ------
@@ -119,11 +120,11 @@ func ConsensusModule(
 		// Store new local orders as pendingAck and update network module
 		case a := <- NewOrderChan:
 
-			/*// Don't accept new hall orders when alone on network
+			// Don't accept new hall orders when alone on network
 			// (Otherwise inactive orders might override confirmed orders when reconnecting to network)
 			if len(peerlist) <= 1 {
 				break
-			}*/
+			}
 
 			// Set order to pendingAck
 			// (Make sure to never access elements outside of array)
@@ -161,8 +162,8 @@ func ConsensusModule(
 			LocalOrdersChan <- localHallOrders
 
 
-		/*// Received changes in peerlist from network module
-		case a := <- peerlistUpdateHallChan:
+		// Received changes in peerlist from network module
+		case a := <- PeerlistUpdateChan:
 
 			peerlist = generalConsensusModule.UniqueIDSlice(a)
 
@@ -179,8 +180,11 @@ func ConsensusModule(
 				
 				// Inform network module that changes have been made
 				LocalOrdersChan <- localHallOrders		
-			}*/
+			}
 
+			fmt.Println("(hallConsensus) peerlist: ", peerlist)
+
+		
 		// Merge received remoteHallOrders from network module with local data in localHallOrders 
 		case a := <- RemoteOrdersChan:
 

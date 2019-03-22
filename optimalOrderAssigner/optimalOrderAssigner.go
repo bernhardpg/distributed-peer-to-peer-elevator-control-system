@@ -1,7 +1,6 @@
 package optimalOrderAssigner
 
 import (
-	"fmt"
 	"encoding/json"
 	"log"
 	"os"
@@ -114,51 +113,6 @@ func runOptimizer(currOptimizationInputJSON []byte) []byte {
 	return outJSON
 }
 
-// Sets the order in the correct order matrix (if the order is not already set)
-// and tell lightio to turn on the corresponding light (if the order is set).
-// @return: true if order is set, false if order was already set
-func setOrder(
-	buttonPress elevio.ButtonEvent,
-	hallOrders [][]bool,
-	cabOrders []bool) bool {
-
-	if buttonPress.Button == elevio.BT_Cab {
-		if cabOrders[buttonPress.Floor] {
-			return false
-		}
-		cabOrders[buttonPress.Floor] = true
-
-	} else {
-		if hallOrders[buttonPress.Floor][buttonPress.Button] {
-			return false
-		}
-		hallOrders[buttonPress.Floor][buttonPress.Button] = true
-	}
-
-	// TODO remove commented light code
-	// TurnOnLightsChan <- buttonPress
-	return true
-}
-
-// Clear all orders in the correct order matrix and tell lightio to turn off the corresponding lights
-func clearOrdersAtFloor(
-	floor int,
-	hallOrders datatypes.ConfirmedHallOrdersMatrix,
-	cabOrders []bool) {
-
-	cabOrders[floor] = false
-	hallOrders[floor] = [2] bool{false, false}
-
-	// TODO remove commented light code
-	/*// Clear all button lights on floor
-	for orderType := elevio.BT_HallUp; orderType <= elevio.BT_Cab; orderType++ {
-		TurnOffLightsChan <- elevio.ButtonEvent{
-			Floor:  floor,
-			Button: orderType,
-		}
-	}*/
-}
-
 // Assigner ...
 // Will calculate and assign confirmed orders to the current node each time new state data or
 // new confirmed orders enters the system.
@@ -208,12 +162,6 @@ func Assigner(
 
 			currAllNodeStates = a
 			optimize = true
-
-		/*case a := <- NewOrderChan:
-			// Optimize if something is changed
-			if setOrder(a, currHallOrders, currCabOrders) {
-				optimize = true
-			}*/
 
 		// Receive new confirmedOrders from hallConsensus
 		// Optimize if the new order is not already in the system
