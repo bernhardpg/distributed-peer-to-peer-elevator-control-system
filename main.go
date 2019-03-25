@@ -8,14 +8,13 @@
 package main
 
 import (
-	"./consensusModule/cabConsensus"
-	"./consensusModule/hallConsensus"
+	"./consensus"
 	"./datatypes"
 	"./elevio"
 	"./fsm"
 	"./network"
-	"./nodeStatesHandler"
-	"./optimalOrderAssigner"
+	"./nodestates"
+	"./orderassignment"
 	"flag"
 	"fmt"
 	"strconv"
@@ -60,20 +59,20 @@ func main() {
 	fsmChns := fsm.Channels{
 		ArrivedAtFloorChan: make(chan int),
 	}
-	optimalOrderAssignerChns := optimalOrderAssigner.Channels{
+	orderassignmentChns := orderassignment.Channels{
+		// Needs a buffer size bigger than one because the orderassignment might send on this channel multiple times before FSM manages to receive!
 		LocallyAssignedOrdersChan: make(chan datatypes.AssignedOrdersMatrix, 2),
-		// Needs a buffer size bigger than one because the optimalOrderAssigner might send on this channel multiple times before FSM manages to receive!
 	}
-	nodeStatesHandlerChns := nodeStatesHandler.Channels{
+	nodestatesChns := nodestates.Channels{
 		LocalNodeStateChan: make(chan fsm.NodeState),
 		AllNodeStatesChan:  make(chan map[datatypes.NodeID]fsm.NodeState, 2),
 		NodeLostChan:       make(chan datatypes.NodeID),
 	}
 	networkChns := network.Channels{
 		LocalNodeStateChan:   make(chan fsm.NodeState),
-		RemoteNodeStatesChan: make(chan nodeStatesHandler.NodeStateMsg, 2),
+		RemoteNodeStatesChan: make(chan nodestates.NodeStateMsg, 2),
 	}
-	hallConsensusChns := hallConsensus.Channels{
+	hallConsensusChns := consensus.HallOrderChannels{
 		CompletedOrderChan:  make(chan int),
 		NewOrderChan:        make(chan elevio.ButtonEvent),
 		ConfirmedOrdersChan: make(chan datatypes.ConfirmedHallOrdersMatrix),
@@ -81,7 +80,7 @@ func main() {
 		RemoteOrdersChan:    make(chan datatypes.HallOrdersMatrix),
 		PeerlistUpdateChan:  make(chan []datatypes.NodeID),
 	}
-	cabConsensusChns := cabConsensus.Channels{
+	cabConsensusChns := consensus.CabOrderChannels{
 		CompletedOrderChan: make(chan int),
 		NewOrderChan:       make(chan int),
 	}
@@ -107,36 +106,36 @@ func main() {
 	go fsm.StateMachine(
 		numFloors,
 		fsmChns.ArrivedAtFloorChan,
-		optimalOrderAssignerChns.LocallyAssignedOrdersChan,
+		orderassignmentChns.LocallyAssignedOrdersChan,
 		hallConsensusChns.CompletedOrderChan,
 		cabConsensusChns.CompletedOrderChan,
-		nodeStatesHandlerChns.LocalNodeStateChan)
+		nodestatesChns.LocalNodeStateChan)
 
-	go nodeStatesHandler.NodeStatesHandler(
+	go nodestates.Handler(
 		localID,
-		nodeStatesHandlerChns.LocalNodeStateChan,
-		nodeStatesHandlerChns.AllNodeStatesChan,
-		nodeStatesHandlerChns.NodeLostChan,
+		nodestatesChns.LocalNodeStateChan,
+		nodestatesChns.AllNodeStatesChan,
+		nodestatesChns.NodeLostChan,
 		networkChns.LocalNodeStateChan,
 		networkChns.RemoteNodeStatesChan)
 
-	go optimalOrderAssigner.Assigner(
+	go orderassignment.OptimalAssigner(
 		localID,
 		numFloors,
-		optimalOrderAssignerChns.LocallyAssignedOrdersChan,
+		orderassignmentChns.LocallyAssignedOrdersChan,
 		hallConsensusChns.ConfirmedOrdersChan,
-		nodeStatesHandlerChns.AllNodeStatesChan)
+		nodestatesChns.AllNodeStatesChan)
 
 	go network.Module(
 		localID,
 		networkChns.LocalNodeStateChan,
 		networkChns.RemoteNodeStatesChan,
-		nodeStatesHandlerChns.NodeLostChan,
+		nodestatesChns.NodeLostChan,
 		hallConsensusChns.LocalOrdersChan,
 		hallConsensusChns.RemoteOrdersChan,
 		hallConsensusChns.PeerlistUpdateChan)
 
-	go hallConsensus.ConsensusModule(
+	go consensus.HallOrdersModule(
 		localID,
 		hallConsensusChns.NewOrderChan,
 		hallConsensusChns.ConfirmedOrdersChan,

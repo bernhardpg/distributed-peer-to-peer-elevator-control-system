@@ -6,59 +6,22 @@ import (
 	"fmt"
 )
 
-// HallOrderChannels ...
-// Channels used for communication related to consensus of hall orders with other modules
-type HallOrderChannels struct {
-	NewOrderChan        chan elevio.ButtonEvent
-	CompletedOrderChan  chan int
-	ConfirmedOrdersChan chan datatypes.ConfirmedHallOrdersMatrix
-	LocalOrdersChan     chan datatypes.HallOrdersMatrix
-	RemoteOrdersChan    chan datatypes.HallOrdersMatrix
-	PeerlistUpdateChan  chan []datatypes.NodeID
-}
+// merge ...
+// Forms the basis for all the consensus logic.
+// Merges the wordview of a single local order request with a single remote order request.
+// Possible order states:
+//		Unknown - Nothing can be said with certainty about the order, will get overriden by all other states
+//		Inactive - The order is completed and hence to be regarded as inactive
+//		PendingAck - The order is pending acknowledgement from the other nodes on the network before it can be handled by a node
+//		Confirmed - The order is confirmed by all nodes on the network and is ready to be served by a node
+// @return newConfirmedFlag: the order was set to Confirmed
+// @return newInactiveFlag: the order was set to Inactive
+func merge(
+	pLocal *datatypes.Req,
+	remote datatypes.Req,
+	localID datatypes.NodeID,
+	peersList []datatypes.NodeID) (bool, bool) {
 
-// LocalHallOrdersMsg ...
-// Used for broadcasting localHallOrders to other nodes
-type LocalHallOrdersMsg struct {
-	ID         datatypes.NodeID
-	HallOrders datatypes.HallOrdersMatrix
-}
-
-func uniqueIDSlice(IDSlice []datatypes.NodeID) []datatypes.NodeID {
-
-	keys := make(map[datatypes.NodeID]bool)
-	list := []datatypes.NodeID{}
-
-	for _, entry := range IDSlice {
-		if _, value := keys[entry]; !value {
-			keys[entry] = true
-			list = append(list, entry)
-		}
-	}
-	return list
-}
-
-func containsElement(s []datatypes.NodeID, e datatypes.NodeID) bool {
-	for _, a := range s {
-		if a == e {
-			return true
-		}
-	}
-	return false
-}
-
-//Returns true if primaryList contains listFraction
-func containsList(primaryList []datatypes.NodeID, listFraction []datatypes.NodeID) bool {
-	for _, a := range listFraction {
-		if !containsElement(primaryList, a) {
-			return false
-		}
-	}
-	return true
-}
-
-// Merges the worldview in a request cell in the order matrix
-func merge(pLocal *datatypes.Req, remote datatypes.Req, localID datatypes.NodeID, peersList []datatypes.NodeID) (bool, bool) {
 	newConfirmedFlag := false
 	newInactiveFlag := false
 
@@ -121,22 +84,47 @@ func merge(pLocal *datatypes.Req, remote datatypes.Req, localID datatypes.NodeID
 	return newInactiveFlag, newConfirmedFlag
 }
 
-// updateConfirmedHallOrders ...
-// Constructs a boolean matrix where only confirmed orders are set to true
-func updateConfirmedHallOrders(
-	localHallOrders datatypes.HallOrdersMatrix,
-	confirmedHallOrders *datatypes.ConfirmedHallOrdersMatrix) {
+// TODO what does this do??
+func uniqueIDSlice(IDSlice []datatypes.NodeID) []datatypes.NodeID {
 
-	for floor := range localHallOrders {
-		for orderType := range localHallOrders[floor] {
-			if localHallOrders[floor][orderType].State == datatypes.Confirmed {
-				(*confirmedHallOrders)[floor][orderType] = true
-			} else {
-				(*confirmedHallOrders)[floor][orderType] = false
-			}
+	keys := make(map[datatypes.NodeID]bool)
+	list := []datatypes.NodeID{}
+
+	for _, entry := range IDSlice {
+		if _, value := keys[entry]; !value {
+			keys[entry] = true
+			list = append(list, entry)
 		}
 	}
+	return list
 }
+
+// containtsID ...
+// Returns whether or not the NodeID list passed as the first argument contains the NodeID passed as the second param
+func containsID(s []datatypes.NodeID, e datatypes.NodeID) bool {
+	for _, a := range s {
+		if a == e {
+			return true
+		}
+	}
+	return false
+}
+
+// containsList ...
+//Returns true if primaryList contains listFraction
+func containsList(primaryList []datatypes.NodeID, listFraction []datatypes.NodeID) bool {
+	for _, a := range listFraction {
+		if !containsID(primaryList, a) {
+			return false
+		}
+	}
+	return true
+}
+
+// ----------
+// Setting the elevator lights
+// ----------
+// TODO generalize light functions
 
 func setHallLight(currFloor int, orderType int, TurnOnHallLightChan chan<- elevio.ButtonEvent) {
 	buttonDir := (elevio.ButtonType)(orderType)
@@ -164,12 +152,71 @@ func clearHallLights(currFloor int, TurnOffHallLightChan chan<- elevio.ButtonEve
 	TurnOffHallLightChan <- callUpAtFloor
 }
 
-// HallConsensusModule ...
+func setCabLight(currFloor int, TurnOnCabLightChan chan<- elevio.ButtonEvent) {
+
+	buttonToIlluminate := elevio.ButtonEvent{
+		Floor:  currFloor,
+		Button: elevio.BT_Cab,
+	}
+
+	TurnOnCabLightChan <- buttonToIlluminate
+}
+
+func clearCabLight(currFloor int, TurnOffCabLightChan chan<- elevio.ButtonEvent) {
+
+	buttonToClear := elevio.ButtonEvent{
+		Floor:  currFloor,
+		Button: elevio.BT_Cab,
+	}
+
+	TurnOffCabLightChan <- buttonToClear
+}
+
+// ----------
+// Hall Order Consensus
+// ----------
+
+// HallOrderChannels ...
+// Channels used for communication related to consensus of hall orders with other modules
+type HallOrderChannels struct {
+	NewOrderChan        chan elevio.ButtonEvent
+	CompletedOrderChan  chan int
+	ConfirmedOrdersChan chan datatypes.ConfirmedHallOrdersMatrix
+	LocalOrdersChan     chan datatypes.HallOrdersMatrix
+	RemoteOrdersChan    chan datatypes.HallOrdersMatrix
+	PeerlistUpdateChan  chan []datatypes.NodeID
+}
+
+// LocalHallOrdersMsg ...
+// Used for broadcasting localHallOrders to other nodes
+type LocalHallOrdersMsg struct {
+	ID         datatypes.NodeID
+	HallOrders datatypes.HallOrdersMatrix
+}
+
+// updateConfirmedHallOrders ...
+// Constructs a boolean matrix where only confirmed orders are set to true
+func updateConfirmedHallOrders(
+	localHallOrders datatypes.HallOrdersMatrix,
+	confirmedHallOrders *datatypes.ConfirmedHallOrdersMatrix) {
+
+	for floor := range localHallOrders {
+		for orderType := range localHallOrders[floor] {
+			if localHallOrders[floor][orderType].State == datatypes.Confirmed {
+				(*confirmedHallOrders)[floor][orderType] = true
+			} else {
+				(*confirmedHallOrders)[floor][orderType] = false
+			}
+		}
+	}
+}
+
+// HallOrdersModule ...
 // Handles the information distribution for hall orders between nodes.
 // Keeps track of which orders are currently confirmed by all nodes, which orders that are still pending acknowledgement,
-// and which orders that are completed (inactive). Only confirmed orders are passed along to the optimal assigner, making
+// and which orders that are completed (Inactive). Only confirmed orders are passed along to the optimal assigner, making
 // sure that all nodes agree on the distribution of all of the orders at all times.
-func HallConsensusModule(
+func HallOrdersModule(
 	localID datatypes.NodeID,
 	NewOrderChan <-chan elevio.ButtonEvent,
 	ConfirmedOrdersChan chan<- datatypes.ConfirmedHallOrdersMatrix,
@@ -313,7 +360,9 @@ func HallConsensusModule(
 	}
 }
 
-// CABBBB
+// ----------
+// Cab Order Consensus
+// ----------
 
 type CabOrderChannels struct {
 	NewOrderChan       chan int
@@ -352,26 +401,6 @@ func updateConfirmedCabOrders(
 			}
 		}
 	}
-}
-
-func setCabLight(currFloor int, TurnOnCabLightChan chan<- elevio.ButtonEvent) {
-
-	buttonToIlluminate := elevio.ButtonEvent{
-		Floor:  currFloor,
-		Button: elevio.BT_Cab,
-	}
-
-	TurnOnCabLightChan <- buttonToIlluminate
-}
-
-func clearCabLight(currFloor int, TurnOffCabLightChan chan<- elevio.ButtonEvent) {
-
-	buttonToClear := elevio.ButtonEvent{
-		Floor:  currFloor,
-		Button: elevio.BT_Cab,
-	}
-
-	TurnOffCabLightChan <- buttonToClear
 }
 
 func CabOrderConsensus(
