@@ -14,6 +14,7 @@
 - Deep copy??
 - IMPORTANT: Handle physical obstruction (timout in fsm, signal to network that node is to be regarded as offline)
 - BUGFIX: calculateNextOrder will loop forever if currOrder is removed by optimalOrderassigner (or what?)
+- Blinking lights??
 
 ### DONE
 - Change iolights -> lightsio
