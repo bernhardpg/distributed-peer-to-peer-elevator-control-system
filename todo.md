@@ -1,7 +1,6 @@
 ### TODOS
 - Change all chans into <- in parameters
 - What to do with semicolon?
-- fix problem where elev times out
 - Make Golint happy
 - Rename all channels structs as Channels
 - Everything crashes when starting elevator outside boundaries

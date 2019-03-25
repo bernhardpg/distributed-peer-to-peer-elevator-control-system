@@ -1,36 +1,41 @@
+/*
+	TTK4145 Realtime Programming – Elevator Project 2019
+	Developed by Sander Endresen, Arild Madshaven and Bernhard Paus Græsdal
+
+	This project follows the Golint code style standards as currently used and developed by Google.
+*/
+
 package main
 
 import (
-	"./datatypes"
-	"./fsm"
-	"./elevio"
-	"./iolights"
-	"./optimalOrderAssigner"
-	"./nodeStatesHandler"
-	"./network"
-	"./consensusModule/hallConsensus"
 	"./consensusModule/cabConsensus"
-	"fmt"
+	"./consensusModule/hallConsensus"
+	"./datatypes"
+	"./elevio"
+	"./fsm"
+	"./network"
+	"./nodeStatesHandler"
+	"./optimalOrderAssigner"
 	"flag"
+	"fmt"
 	"strconv"
 )
 
-
 func main() {
-	
-	numFloors := elevio.NumFloors;
+
+	// Set numFloors to equal the global const defined in elevio.go
+	numFloors := elevio.NumFloors
 	fmt.Println("(main) numFloors: ", numFloors)
 
-	// ID Handling
+	// ID and Port Handling
 	// ------
-
 	// Pass the ID in the command line with `go run main.go -id=our_id`
-	IDptr := flag.Int("id", 1, "LocalID of the node");
 	// Pass the port number in the command line with `go run main.go -port=our_id`
-	portPtr := flag.Int("port", 15657, "Port for connecting to elevator");
+
+	IDptr := flag.Int("id", 1, "LocalID of the node")
+	portPtr := flag.Int("port", 15657, "Port for connecting to elevator")
 
 	flag.Parse()
-
 	localID := (datatypes.NodeID)(*IDptr)
 	port := *portPtr
 
@@ -39,52 +44,50 @@ func main() {
 
 	// Connect to elevator through tcp (either hardware or simulator)
 	// -----
-	elevio.Init("localhost:" + strconv.Itoa(port));
+	elevio.Init("localhost:" + strconv.Itoa(port))
 
-
-	// Init channels
+	// Initialize channels
 	// -----
-	fsmChns := fsm.StateMachineChannels {
+	iolightsChns := elevio.LightsChannels{
+		TurnOnLightsChan:     make(chan elevio.ButtonEvent),
+		TurnOffLightsChan:    make(chan elevio.ButtonEvent),
+		FloorIndicatorChan:   make(chan int),
+		TurnOffHallLightChan: make(chan elevio.ButtonEvent),
+		TurnOnHallLightChan:  make(chan elevio.ButtonEvent),
+		TurnOffCabLightChan:  make(chan elevio.ButtonEvent),
+		TurnOnCabLightChan:   make(chan elevio.ButtonEvent),
+	}
+	fsmChns := fsm.StateMachineChannels{
 		ArrivedAtFloorChan: make(chan int),
 	}
-	iolightsChns := iolights.LightsChannels {
-		TurnOnLightsChan: make(chan elevio.ButtonEvent),
-		TurnOffLightsChan: make(chan elevio.ButtonEvent),
-		FloorIndicatorChan: make(chan int),
-		TurnOffHallLightChan: make(chan elevio.ButtonEvent),
-		TurnOnHallLightChan: make(chan elevio.ButtonEvent),
-		TurnOffCabLightChan: make(chan elevio.ButtonEvent),
-		TurnOnCabLightChan: make(chan elevio.ButtonEvent),
-	}
-	optimalOrderAssignerChns := optimalOrderAssigner.OptimalOrderAssignerChannels {
-		NewOrderChan: make(chan elevio.ButtonEvent), // TODO move to consensus module
+	optimalOrderAssignerChns := optimalOrderAssigner.OptimalOrderAssignerChannels{
+		NewOrderChan:              make(chan elevio.ButtonEvent), // TODO move to consensus module
 		LocallyAssignedOrdersChan: make(chan datatypes.AssignedOrdersMatrix, 2),
 		// Needs a buffer size bigger than one because the optimalOrderAssigner might send on this channel multiple times before FSM manages to receive!
 	}
-	nodeStatesHandlerChns := nodeStatesHandler.NodeStatesHandlerChannels {
+	nodeStatesHandlerChns := nodeStatesHandler.NodeStatesHandlerChannels{
 		LocalNodeStateChan: make(chan fsm.NodeState),
-		AllNodeStatesChan: make(chan map[datatypes.NodeID] fsm.NodeState, 2),
-		NodeLostChan: make(chan datatypes.NodeID),
+		AllNodeStatesChan:  make(chan map[datatypes.NodeID]fsm.NodeState, 2),
+		NodeLostChan:       make(chan datatypes.NodeID),
 	}
-	networkChns := network.Channels {
-		LocalNodeStateChan: make(chan fsm.NodeState),
+	networkChns := network.Channels{
+		LocalNodeStateChan:   make(chan fsm.NodeState),
 		RemoteNodeStatesChan: make(chan nodeStatesHandler.NodeStateMsg, 2),
 	}
-	hallConsensusChns := hallConsensus.Channels {
-		CompletedOrderChan: make(chan int),
-		NewOrderChan: make(chan elevio.ButtonEvent),
+	hallConsensusChns := hallConsensus.Channels{
+		CompletedOrderChan:  make(chan int),
+		NewOrderChan:        make(chan elevio.ButtonEvent),
 		ConfirmedOrdersChan: make(chan datatypes.ConfirmedHallOrdersMatrix),
-		LocalOrdersChan: make(chan datatypes.HallOrdersMatrix, 2),
-		RemoteOrdersChan: make(chan datatypes.HallOrdersMatrix),
-		PeerlistUpdateChan: make(chan []datatypes.NodeID),
+		LocalOrdersChan:     make(chan datatypes.HallOrdersMatrix, 2),
+		RemoteOrdersChan:    make(chan datatypes.HallOrdersMatrix),
+		PeerlistUpdateChan:  make(chan []datatypes.NodeID),
 	}
-	cabConsensusChns := cabConsensus.Channels {
+	cabConsensusChns := cabConsensus.Channels{
 		CompletedOrderChan: make(chan int),
-		NewOrderChan: make(chan int),
+		NewOrderChan:       make(chan int),
 	}
 
 	// TODO Double check channel buffering!
-
 
 	// Start modules
 	// -----
@@ -94,6 +97,14 @@ func main() {
 		fsmChns.ArrivedAtFloorChan,
 		iolightsChns.FloorIndicatorChan)
 
+	go elevio.LightHandler(
+		numFloors,
+		iolightsChns.TurnOffHallLightChan,
+		iolightsChns.TurnOnHallLightChan,
+		iolightsChns.TurnOffCabLightChan,
+		iolightsChns.TurnOnCabLightChan,
+		iolightsChns.FloorIndicatorChan)
+
 	go fsm.StateMachine(
 		numFloors,
 		fsmChns.ArrivedAtFloorChan,
@@ -101,14 +112,6 @@ func main() {
 		hallConsensusChns.CompletedOrderChan,
 		cabConsensusChns.CompletedOrderChan,
 		nodeStatesHandlerChns.LocalNodeStateChan)
-
-	go iolights.LightHandler(
-		numFloors,
-		iolightsChns.TurnOffHallLightChan,
-		iolightsChns.TurnOnHallLightChan,
-		iolightsChns.TurnOffCabLightChan,
-		iolightsChns.TurnOnCabLightChan,
-		iolightsChns.FloorIndicatorChan)
 
 	go nodeStatesHandler.NodeStatesHandler(
 		localID,
@@ -134,7 +137,6 @@ func main() {
 		hallConsensusChns.RemoteOrdersChan,
 		hallConsensusChns.PeerlistUpdateChan)
 
-
 	go hallConsensus.ConsensusModule(
 		localID,
 		hallConsensusChns.NewOrderChan,
@@ -146,7 +148,7 @@ func main() {
 		hallConsensusChns.RemoteOrdersChan,
 		hallConsensusChns.PeerlistUpdateChan)
 
-	fmt.Println("(main) Started all modules");
+	fmt.Println("(main) Started all modules")
 
 	for {
 		select {}
