@@ -7,14 +7,22 @@
 - Change peerlist to set?
 - Better names for LocalNodeStateChan ?
 - Change all variable declarations from 'var' to i.e. 'localState := fsm.NodeState {}'
-- Change NodeID to string?
 - Rename neworder channels in hallConsensus and cabcons
 	- Change both chans to elevio.ButtonEvent?
-- IMPORTANT: Handle physical obstruction (timout in fsm, signal to network that node is to be regarded as offline) (Or, stop broadcasting for 20 secs, then reboot).
-- BUGFIX: calculateNextOrder will loop forever if currOrder is removed by optimalOrderassigner (or what?)
 - Blinking lights??
 
+Tirsdag:
+- Deep copy?? Fixed in nodestates!!
+- Clean up light channels
+- Check out orderassignment and initializing of variables
+- Packet loss
+- IMPORTANT: Handle physical obstruction (timout in fsm, signal to network that node is to be regarded as offline) (Or, stop broadcasting for 20 secs, then reboot).
+- ++
+
+
 ### DONE
+- Rewrite fsm: BUGFIX: calculateNextOrder will loop forever if currOrder is removed by optimalOrderassigner (or what?)
+- Change NodeID to string?
 - Deep copy?? Fixed with datatypes
 - numFloors as param or global const?
 - Rename generalConsensusModukle to consensusFunctions
