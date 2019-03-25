@@ -4,7 +4,7 @@ import (
 	"../elevio"
 )
 
-type NodeID int
+type NodeID string
 
 type Req struct {
 	State ReqState

@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"reflect"
+	"fmt"
 )
 
 // Channels ...
@@ -32,7 +33,7 @@ type optimizationInputJSON struct {
 // format required by optimization script
 func encodeJSON(
 	currHallOrders datatypes.ConfirmedHallOrdersMatrix,
-	currCabOrders []bool,
+	currCabOrders datatypes.ConfirmedCabOrdersMap,
 	currAllNodeStates map[datatypes.NodeID]fsm.NodeState) []byte {
 
 	// TODO change currCabOrders to allCabOrders
@@ -68,7 +69,7 @@ func encodeJSON(
 			Behaviour:   currBehaviour,
 			Floor:       currNodeState.Floor,
 			Direction:   currDirection,
-			CabRequests: currCabOrders,
+			CabRequests: currCabOrders[currID],
 		}
 	}
 
@@ -122,20 +123,14 @@ func OptimalAssigner(
 	numFloors int,
 	LocallyAssignedOrdersChan chan<- datatypes.AssignedOrdersMatrix,
 	ConfirmedHallOrdersChan <-chan datatypes.ConfirmedHallOrdersMatrix,
+	ConfirmedCabOrdersChan <-chan datatypes.ConfirmedCabOrdersMap,
 	AllNodeStatesChan <-chan map[datatypes.NodeID]fsm.NodeState) {
 
 	// Initialize variables
 	//-------
 
 	var currHallOrders datatypes.ConfirmedHallOrdersMatrix
-	currCabOrders := make([]bool, numFloors)
-
-	for floor := range currHallOrders {
-		for orderType := range currHallOrders[floor] {
-			currHallOrders[floor][orderType] = false
-		}
-		currCabOrders[floor] = false
-	}
+	var currCabOrders datatypes.ConfirmedCabOrdersMap
 
 	optimize := false
 	currAllNodeStates := make(map[datatypes.NodeID]fsm.NodeState)
@@ -171,6 +166,21 @@ func OptimalAssigner(
 			}
 
 			currHallOrders = a
+			optimize = true
+
+		// Receive new confirmedOrders from hallConsensus
+		// Optimize if the new order is not already in the system
+		case a := <-ConfirmedCabOrdersChan:
+			fmt.Println(a)
+			// Avoid double calculation when hit desired floor
+			if reflect.DeepEqual(a, currCabOrders) {
+				fmt.Println("Equal orders, breaking!")
+				break
+			}
+
+			fmt.Println("not equal, Optimizing!")
+
+			currCabOrders = a
 			optimize = true
 
 		default:

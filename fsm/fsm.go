@@ -235,7 +235,7 @@ func StateMachine(
 
 						// Tell hallConsensus to wipe all orders at floor
 						CompletedHallOrderChan <- currFloor
-						//CompletedCabOrderChan <- currFloor
+						CompletedCabOrderChan <- currFloor
 						
 					}
 			}
@@ -270,7 +270,7 @@ func StateMachine(
 
 				// Tell hallConsensus to wipe all orders at floor
 				CompletedHallOrderChan <- currFloor
-				//CompletedCabOrderChan <- currFloor
+				CompletedCabOrderChan <- currFloor
 				behaviour = DoorOpenState
 
 			// Some other floor than our own is requested.
@@ -295,7 +295,7 @@ func StateMachine(
 
 				// Tell hallConsensus to wipe all orders at floor
 				CompletedHallOrderChan <- currFloor
-				//CompletedCabOrderChan <- currFloor
+				CompletedCabOrderChan <- currFloor
 			}
 
 		}

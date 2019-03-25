@@ -29,7 +29,7 @@ func IOReader(
 			if a.Button == BT_HallDown || a.Button == BT_HallUp {
 				NewHallOrderChan <- a
 			} else if a.Button == BT_Cab {
-				//NewCabOrderChan <- a.Floor
+				NewCabOrderChan <- a.Floor
 			}
 
 		case a := <-drvFloors:

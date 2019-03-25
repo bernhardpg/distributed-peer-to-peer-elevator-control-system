@@ -8,7 +8,6 @@ import (
 	"./driver/bcast"
 	"./driver/peers"
 	"fmt"
-	"strconv"
 	"time"
 )
 
@@ -27,13 +26,17 @@ func Module(
 	NodeLostChan chan<- datatypes.NodeID,
 	LocalHallOrdersChan <-chan datatypes.HallOrdersMatrix,
 	RemoteHallOrdersChan chan<- datatypes.HallOrdersMatrix,
-	PeerlistUpdateHallChan chan<- []datatypes.NodeID) {
+	PeerlistUpdateHallChan chan<- []datatypes.NodeID,
+	LocalCabOrdersChan <-chan datatypes.CabOrdersMap,
+	RemoteCabOrdersChan chan<- datatypes.CabOrdersMap,
+	PeerlistUpdateCabChan chan<- []datatypes.NodeID,
+	LostPeerCabChan chan<- datatypes.NodeID) {
 
 	// Configure Peer List
 	// -----
 	peerUpdateChan := make(chan peers.PeerUpdate)
 	peerTxEnable := make(chan bool) // Used to signal that the node is unavailable
-	go peers.Transmitter(15519, strconv.Itoa(int(localID)), peerTxEnable)
+	go peers.Transmitter(15519, string(localID), peerTxEnable)
 	go peers.Receiver(15519, peerUpdateChan)
 
 	// Setup channels and modules for sending and receiving nodestates.NodeStateMsg
@@ -50,6 +53,13 @@ func Module(
 	go bcast.Transmitter(15511, localHallOrdersTx)
 	go bcast.Receiver(15511, remoteHallOrdersRx)
 
+	// Setup channels and modules for sending and receiving localCabOrder maps
+	// -----
+	localCabOrdersTx := make(chan consensus.LocalCabOrdersMsg)
+	remoteCabOrdersRx := make(chan consensus.LocalCabOrdersMsg)
+	go bcast.Transmitter(15512, localCabOrdersTx)
+	go bcast.Receiver(15512, remoteCabOrdersRx)
+
 	// Initialize variables
 	// -----
 	bcastPeriod := 200 * time.Millisecond // TODO change this
@@ -57,6 +67,7 @@ func Module(
 
 	localState := fsm.NodeState{}
 	var localHallOrders datatypes.HallOrdersMatrix
+	var localCabOrders datatypes.CabOrdersMap
 
 	// Handle network traffic
 	// -----
@@ -73,9 +84,9 @@ func Module(
 
 			// Inform NodeStatesHandler and consensusModules that one ore more nodes are lost from the network
 			if len(a.Lost) != 0 {
-				for _, currIDstr := range a.Lost {
-					currID, _ := strconv.Atoi(currIDstr)
+				for _, currID := range a.Lost {
 					NodeLostChan <- (datatypes.NodeID)(currID)
+					LostPeerCabChan <- (datatypes.NodeID)(currID)
 				}
 			}
 
@@ -83,20 +94,17 @@ func Module(
 			if len(a.Lost) != 0 || len(a.New) != 0 {
 				var peerlist []datatypes.NodeID
 
-				for _, currIDstr := range a.Peers {
-					currID, _ := strconv.Atoi(currIDstr)
+				for _, currID := range a.Peers {
 					peerlist = append(peerlist, (datatypes.NodeID)(currID))
 				}
 
 				PeerlistUpdateHallChan <- peerlist
-				// TODO cabOrders here
+				PeerlistUpdateCabChan <- peerlist
 			}
 
 		// Transmit local state
 		case a := <-LocalNodeStateChan:
 			localState = a
-
-		// TODO create channel for NodeLostChan for consensus module
 
 		// Receive remote node states
 		case a := <-remoteStateRx:
@@ -110,18 +118,30 @@ func Module(
 		case a := <-remoteHallOrdersRx:
 			RemoteHallOrdersChan <- a.HallOrders
 
+		case a := <-LocalCabOrdersChan:
+			localCabOrders = a
+
+		case a := <-remoteCabOrdersRx:
+			RemoteCabOrdersChan <- a.CabOrders
+
 		case <-bcastTimer.C:
 			bcastTimer.Reset(bcastPeriod)
 
-			localStateTx <- nodestates.NodeStateMsg{
+			localStateTx <- nodestates.NodeStateMsg {
 				ID:    localID,
 				State: localState,
 			}
 
-			localHallOrdersTx <- consensus.LocalHallOrdersMsg{
+			localHallOrdersTx <- consensus.LocalHallOrdersMsg {
 				ID:         localID, // This is actually never used, but is included for consistency on network
 				HallOrders: localHallOrders,
 			}
+
+			localCabOrdersTx <- consensus.LocalCabOrdersMsg {
+				ID:         localID, // This is actually never used, but is included for consistency on network
+				CabOrders: localCabOrders,
+			}
 		}
+
 	}
 }

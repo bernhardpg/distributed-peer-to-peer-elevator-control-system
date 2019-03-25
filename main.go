@@ -31,11 +31,11 @@ func main() {
 	// Pass the ID in the command line with `go run main.go -id=our_id`
 	// Pass the port number in the command line with `go run main.go -port=our_id`
 
-	IDptr := flag.Int("id", 1, "LocalID of the node")
+	IDptr := flag.String("id", "1", "LocalID of the node")
 	portPtr := flag.Int("port", 15657, "Port for connecting to elevator")
 
 	flag.Parse()
-	localID := (datatypes.NodeID)(*IDptr)
+	localID := "node_" + (datatypes.NodeID)(*IDptr)
 	port := *portPtr
 
 	fmt.Println("(main) localID:", localID)
@@ -81,8 +81,13 @@ func main() {
 		PeerlistUpdateChan:  make(chan []datatypes.NodeID),
 	}
 	cabConsensusChns := consensus.CabOrderChannels{
-		CompletedOrderChan: make(chan int),
-		NewOrderChan:       make(chan int),
+		CompletedOrderChan:  make(chan int),
+		NewOrderChan:        make(chan int),
+		ConfirmedOrdersChan: make(chan datatypes.ConfirmedCabOrdersMap),
+		LocalOrdersChan:     make(chan datatypes.CabOrdersMap, 2),
+		RemoteOrdersChan:    make(chan datatypes.CabOrdersMap),
+		PeerlistUpdateChan:  make(chan []datatypes.NodeID),
+		LostPeerChan: 		 make(chan datatypes.NodeID),
 	}
 
 	// TODO Double check channel buffering!
@@ -124,6 +129,7 @@ func main() {
 		numFloors,
 		orderassignmentChns.LocallyAssignedOrdersChan,
 		hallConsensusChns.ConfirmedOrdersChan,
+		cabConsensusChns.ConfirmedOrdersChan,
 		nodestatesChns.AllNodeStatesChan)
 
 	go network.Module(
@@ -133,7 +139,11 @@ func main() {
 		nodestatesChns.NodeLostChan,
 		hallConsensusChns.LocalOrdersChan,
 		hallConsensusChns.RemoteOrdersChan,
-		hallConsensusChns.PeerlistUpdateChan)
+		hallConsensusChns.PeerlistUpdateChan,
+		cabConsensusChns.LocalOrdersChan,
+		cabConsensusChns.RemoteOrdersChan,
+		cabConsensusChns.PeerlistUpdateChan,
+		cabConsensusChns.LostPeerChan)
 
 	go consensus.HallOrdersModule(
 		localID,
@@ -145,6 +155,18 @@ func main() {
 		hallConsensusChns.LocalOrdersChan,
 		hallConsensusChns.RemoteOrdersChan,
 		hallConsensusChns.PeerlistUpdateChan)
+
+	go consensus.CabOrdersModule(
+		localID,
+		cabConsensusChns.NewOrderChan,
+		cabConsensusChns.ConfirmedOrdersChan,
+		cabConsensusChns.CompletedOrderChan,
+		iolightsChns.TurnOffCabLightChan,
+		iolightsChns.TurnOnCabLightChan,
+		cabConsensusChns.LocalOrdersChan,
+		cabConsensusChns.RemoteOrdersChan,
+		cabConsensusChns.PeerlistUpdateChan,
+		cabConsensusChns.LostPeerChan)
 
 	fmt.Println("(main) Started all modules")
 

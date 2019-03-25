@@ -1,9 +1,5 @@
 package consensus
 
-// ----------
-// Hall Order Consensus
-// ----------
-
 import (
 	"../datatypes"
 	"../elevio"
@@ -137,6 +133,7 @@ func HallOrdersModule(
 		// Received changes in peerlist from network module
 		case a := <-PeerlistUpdateChan:
 
+			fmt.Println("(consensus) hall received new peerupdate, peerlist: ", peerlist)
 			peerlist = uniqueIDSlice(a)
 
 			// Set all inactive hall orders to unknown if alone on network

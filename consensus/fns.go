@@ -2,7 +2,6 @@ package consensus
 
 import (
 	"../datatypes"
-	"fmt"
 )
 
 // merge ...
@@ -19,7 +18,7 @@ func merge(
 	pLocal *datatypes.Req,
 	remote datatypes.Req,
 	localID datatypes.NodeID,
-	peersList []datatypes.NodeID) (bool, bool) {
+	peerlist []datatypes.NodeID) (bool, bool) {
 
 	newConfirmedFlag := false
 	newInactiveFlag := false
@@ -39,7 +38,8 @@ func merge(
 	// Set local order from Pending to Confirmed if all nodes have acknowledged the order or if the remote order is already Confirmed.
 	// Add the localID to the ackBy list if the order is not yet Confirmed.
 	case datatypes.PendingAck:
-		if (remote.State == datatypes.Confirmed) || containsList((*pLocal).AckBy, peersList) {
+
+		if (remote.State == datatypes.Confirmed) || containsList((*pLocal).AckBy, peerlist) {
 			(*pLocal).State = datatypes.Confirmed
 			newConfirmedFlag = true
 			break
@@ -102,7 +102,6 @@ func uniqueIDSlice(IDSlice []datatypes.NodeID) []datatypes.NodeID {
 		}
 	}
 
-	fmt.Println(list)
 	return list
 }
 

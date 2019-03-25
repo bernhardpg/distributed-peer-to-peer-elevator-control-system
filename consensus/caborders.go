@@ -1,24 +1,32 @@
 package consensus
 
-// ----------
-// Cab Order Consensus module
-// ----------
-
 import (
 	"../datatypes"
 	"../elevio"
 	"fmt"
 )
 
-type CabOrderChannels struct {
-	NewOrderChan       chan int
-	CompletedOrderChan chan int
+// LocalCabOrdersMsg ...
+// Used for broadcasting localHallOrders to other nodes
+type LocalCabOrdersMsg struct {
+	ID         	datatypes.NodeID
+	CabOrders 	datatypes.CabOrdersMap
 }
 
+type CabOrderChannels struct {
+	NewOrderChan        chan int
+	CompletedOrderChan  chan int
+	ConfirmedOrdersChan chan datatypes.ConfirmedCabOrdersMap
+	LocalOrdersChan     chan datatypes.CabOrdersMap
+	RemoteOrdersChan    chan datatypes.CabOrdersMap
+	PeerlistUpdateChan  chan []datatypes.NodeID
+	LostPeerChan  		chan datatypes.NodeID
+}
 // calcConfirmedCabOrders ...
 // Constructs a map with boolean arrays where only Confirmed orders are set to true
 func calcConfirmedOrders(localCabOrders datatypes.CabOrdersMap) datatypes.ConfirmedCabOrdersMap {
 
+	fmt.Println("localCabOrders: ", localCabOrders)
 	confirmedOrders := make(datatypes.ConfirmedCabOrdersMap)
 
 	for currID := range localCabOrders {
@@ -32,6 +40,7 @@ func calcConfirmedOrders(localCabOrders datatypes.CabOrdersMap) datatypes.Confir
 			}
 		}
 	}
+	fmt.Println("confirmedOrders: ", confirmedOrders)
 
 	return confirmedOrders
 }
@@ -64,16 +73,15 @@ func deepcopyConfirmedCabOrders(m datatypes.ConfirmedCabOrdersMap) datatypes.Con
 // TODO write this
 func CabOrdersModule(
 	localID datatypes.NodeID,
-	numFloors int,
-	NewCabOrderChan <-chan int,
-	CompletedCabOrderChan <-chan int,
-	PeerlistUpdateCabChan <-chan []datatypes.NodeID,
-	LostNodeChan <-chan datatypes.NodeID,
-	RemoteCabOrdersChan <-chan datatypes.CabOrdersMap,
+	NewOrderChan <-chan int,
+	ConfirmedOrdersChan chan<- datatypes.ConfirmedCabOrdersMap,
+	CompletedOrderChan <-chan int,
 	TurnOffCabLightChan chan<- elevio.ButtonEvent,
 	TurnOnCabLightChan chan<- elevio.ButtonEvent,
-	ConfirmedCabOrdersToAssignerChan chan<- datatypes.ConfirmedCabOrdersMap,
-	CabOrdersToNetworkChan chan<- datatypes.CabOrdersMap) {
+	LocalOrdersChan chan<- datatypes.CabOrdersMap,
+	RemoteOrdersChan <-chan datatypes.CabOrdersMap,
+	PeerlistUpdateChan <-chan []datatypes.NodeID,
+	LostPeerChan <-chan datatypes.NodeID) {
 
 	// Initialize variables
 	// ----
@@ -86,9 +94,7 @@ func CabOrdersModule(
 	// where maps are always passed by reference and where arrays within maps need to be initialized
 	// dynamically in order to get assigned new values later)
 	localCabOrders := make(datatypes.CabOrdersMap)
-	localCabOrders[localID] = make(datatypes.CabOrdersList, numFloors)
-
-	confirmedCabOrders := calcConfirmedOrders(localCabOrders)
+	localCabOrders[localID] = make(datatypes.CabOrdersList, elevio.NumFloors)
 
 	// Initialize all orders to unknown
 	for floor := range localCabOrders[localID] {
@@ -96,10 +102,14 @@ func CabOrdersModule(
 			State: datatypes.Unknown,
 			AckBy: nil,
 		}
-		confirmedCabOrders[localID][floor] = false
 	}
 
-	// TODO send initialized variables to other modules
+	confirmedCabOrders := calcConfirmedOrders(localCabOrders)
+
+	ConfirmedOrdersChan <- deepcopyConfirmedCabOrders(confirmedCabOrders)
+	LocalOrdersChan <- deepcopyCabOrders(localCabOrders)
+
+	// TODO send initialized variables to other modules??
 
 	fmt.Println("(consensus) CabOrdersModule initialized")
 
@@ -109,18 +119,22 @@ func CabOrdersModule(
 		select {
 
 		// Store new local orders as pendingAck and update network module
-		case a := <-NewCabOrderChan:
+		case a := <-NewOrderChan:
 
 			localCabOrders[localID][a] = datatypes.Req{
 				State: datatypes.PendingAck,
 				AckBy: []datatypes.NodeID{localID},
 			}
 
-			CabOrdersToNetworkChan <- deepcopyCabOrders(localCabOrders)
+			fmt.Println("(consensus) received new order, localCabOrders: ", localCabOrders)
+			LocalOrdersChan <- deepcopyCabOrders(localCabOrders)
 
 		// Mark completed orders as inactive and update network module and optimalAssigner
 		// with all confirmedCabOrders
-		case a := <-CompletedCabOrderChan:
+		case a := <-CompletedOrderChan:
+			fmt.Println("(consensus) received new completed")
+
+			clearCabLight(a, TurnOffCabLightChan)
 
 			localCabOrders[localID][a] = datatypes.Req{
 				State: datatypes.Inactive,
@@ -128,22 +142,21 @@ func CabOrdersModule(
 			}
 
 			confirmedCabOrders = calcConfirmedOrders(localCabOrders)
+			fmt.Println(confirmedCabOrders)
 
 			// Send updates to optimalAssigner
-			// TODO does these need to be deep copied?
-			ConfirmedCabOrdersToAssignerChan <- deepcopyConfirmedCabOrders(confirmedCabOrders)
+			ConfirmedOrdersChan <- deepcopyConfirmedCabOrders(confirmedCabOrders)
 
 			// Send updates to network module
-			CabOrdersToNetworkChan <- deepcopyCabOrders(localCabOrders)
+			LocalOrdersChan <- deepcopyCabOrders(localCabOrders)
 
 		// Update peerlistpeerlist  with changes received from network module
-		case a := <-PeerlistUpdateCabChan:
+		case a := <-PeerlistUpdateChan:
 			peerlist = uniqueIDSlice(a)
 
-		// TODO implement this channel
 		// Set all Inactive orders of a lost node to Unknown
 		// (To avoid overiding any changes in the nodes' cab orders while offline)
-		case a := <-LostNodeChan:
+		case a := <-LostPeerChan:
 
 			// Assert node is in localCabOrders
 			if reqArr, ok := localCabOrders[a]; ok {
@@ -152,15 +165,14 @@ func CabOrdersModule(
 						localCabOrders[a][floor].State = datatypes.Unknown
 					}
 				}
-				CabOrdersToNetworkChan <- localCabOrders
+				LocalOrdersChan <- deepcopyCabOrders(localCabOrders)
 
 			}
 
 		// Merge received remoteCabOrders from network module with local data in localCabOrders
-		case a := <-RemoteCabOrdersChan:
+		case a := <-RemoteOrdersChan:
 
 			remoteCabOrders := a
-
 			confirmedOrdersChangedFlag := false
 
 			// Merge world views for every order on every node in CabOrder map
@@ -184,22 +196,23 @@ func CabOrdersModule(
 					confirmedOrdersChangedFlag = confirmedOrdersChangedFlag || newInactiveFlag || newConfirmedFlag
 
 					if newInactiveFlag {
+						fmt.Println("Turn off light!")
 						clearCabLight(floor, TurnOffCabLightChan)
 					} else if newConfirmedFlag {
 						setCabLight(floor, TurnOnCabLightChan)
 					}
 				}
-
 			}
 
+			
 			// Only update confirmedCabOrders when orders are changed to inactive or confirmed
 			if confirmedOrdersChangedFlag {
-				calcConfirmedOrders(localCabOrders)
-				ConfirmedCabOrdersToAssignerChan <- confirmedCabOrders
+				confirmedCabOrders = calcConfirmedOrders(localCabOrders)
+				ConfirmedOrdersChan <- deepcopyConfirmedCabOrders(confirmedCabOrders)
 			}
 
 			// Update network module with new data
-			CabOrdersToNetworkChan <- localCabOrders
+			LocalOrdersChan <- deepcopyCabOrders(localCabOrders)
 		}
 
 	}
