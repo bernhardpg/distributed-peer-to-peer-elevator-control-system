@@ -2,11 +2,9 @@
 - Change all chans into <- in parameters
 - What to do with semicolon?
 - Make Golint happy
-- Rename all channels structs as Channels
 - Everything crashes when starting elevator outside boundaries
 - Comment all code
 - Change peerlist to set?
-- Change iolights -> lightsio
 - Better names for LocalNodeStateChan ?
 - Change all variable declarations from 'var' to i.e. 'localState := fsm.NodeState {}'
 - Change NodeID to string?
@@ -14,13 +12,14 @@
 - Rename neworder channels in hallConsensus and cabcons
 	- Change both chans to elevio.ButtonEvent?
 - Deep copy??
-- numFloors as param or global const?
-
-- Rename generalConsensusModukle to consensusFunctions
 - IMPORTANT: Handle physical obstruction (timout in fsm, signal to network that node is to be regarded as offline)
 - BUGFIX: calculateNextOrder will loop forever if currOrder is removed by optimalOrderassigner (or what?)
 
 ### DONE
+- Change iolights -> lightsio
+- numFloors as param or global const?
+- Rename generalConsensusModukle to consensusFunctions
+- Rename all channels structs as Channels
 - Test spamming while initting
 - Remember to fix issues with Peerlist and allNodeStates! Peers not on network needs to be removed by nodeStatesHandler!
 - Change elevState to elevBehaviour or something
