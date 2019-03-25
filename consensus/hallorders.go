@@ -88,9 +88,9 @@ func HallOrdersModule(
 
 			// Don't accept new hall orders when alone on network
 			// (Otherwise inactive orders might override confirmed orders when reconnecting to network)
-			/*if len(peerlist) <= 1 {
+			if len(peerlist) <= 1 {
 				break
-			}*/
+			}
 
 			// Set order to pendingAck
 			// (Make sure to never access elements outside of array)
@@ -133,7 +133,6 @@ func HallOrdersModule(
 		// Received changes in peerlist from network module
 		case a := <-PeerlistUpdateChan:
 
-			fmt.Println("(consensus) hall received new peerupdate, peerlist: ", peerlist)
 			peerlist = uniqueIDSlice(a)
 
 			// Set all inactive hall orders to unknown if alone on network

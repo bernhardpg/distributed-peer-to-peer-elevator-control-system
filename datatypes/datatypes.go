@@ -23,6 +23,7 @@ const (
 type HallOrdersMatrix [elevio.NumFloors][2]Req
 type ConfirmedHallOrdersMatrix [elevio.NumFloors][2]bool
 
+// TODO write comment on why length is ommited
 type CabOrdersList []Req
 type CabOrdersMap map[NodeID]CabOrdersList
 type ConfirmedCabOrdersList []bool

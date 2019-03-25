@@ -3,6 +3,7 @@ package orderassignment
 import (
 	"../datatypes"
 	"../fsm"
+	"../elevio"
 	"encoding/json"
 	"log"
 	"os"
@@ -15,6 +16,7 @@ import (
 // Used for communication between this module and other modules
 type Channels struct {
 	LocallyAssignedOrdersChan chan datatypes.AssignedOrdersMatrix
+	PeerlistUpdateChan chan []datatypes.NodeID
 }
 
 type singleNodeStateJSON struct {
@@ -33,16 +35,27 @@ type optimizationInputJSON struct {
 // format required by optimization script
 func encodeJSON(
 	currHallOrders datatypes.ConfirmedHallOrdersMatrix,
-	currCabOrders datatypes.ConfirmedCabOrdersMap,
-	currAllNodeStates map[datatypes.NodeID]fsm.NodeState) []byte {
+	currAllCabOrders datatypes.ConfirmedCabOrdersMap,
+	currAllNodeStates map[datatypes.NodeID]fsm.NodeState,
+	peerlist []datatypes.NodeID) []byte {
 
-	// TODO change currCabOrders to allCabOrders
+	// TODO change currAllCabOrders to allCabOrders
 
 	currStates := make(map[string]singleNodeStateJSON)
 
-	for currID, currNodeState := range currAllNodeStates {
+	for _, currID := range peerlist {
 		currBehaviour := ""
 		currDirection := ""
+
+		// TODO cleanup comment
+		// Initialize cabOrders to false if not yet defined (will converge towards truth anyway)
+
+		// TODO why does not currAllNodeStates need to be initialized??
+		currNodeState := currAllNodeStates[currID]
+		currCabOrders := currAllCabOrders[currID]
+		if currCabOrders == nil {
+			currCabOrders = make(datatypes.ConfirmedCabOrdersList, elevio.NumFloors)
+		}
 
 		switch currNodeState.Behaviour {
 
@@ -69,7 +82,7 @@ func encodeJSON(
 			Behaviour:   currBehaviour,
 			Floor:       currNodeState.Floor,
 			Direction:   currDirection,
-			CabRequests: currCabOrders[currID],
+			CabRequests: currCabOrders,
 		}
 	}
 
@@ -121,6 +134,7 @@ func runOptimizer(currOptimizationInputJSON []byte) []byte {
 func OptimalAssigner(
 	localID datatypes.NodeID,
 	numFloors int,
+	PeerlistUpdateChan <-chan []datatypes.NodeID,
 	LocallyAssignedOrdersChan chan<- datatypes.AssignedOrdersMatrix,
 	ConfirmedHallOrdersChan <-chan datatypes.ConfirmedHallOrdersMatrix,
 	ConfirmedCabOrdersChan <-chan datatypes.ConfirmedCabOrdersMap,
@@ -130,7 +144,8 @@ func OptimalAssigner(
 	//-------
 
 	var currHallOrders datatypes.ConfirmedHallOrdersMatrix
-	var currCabOrders datatypes.ConfirmedCabOrdersMap
+	var currAllCabOrders datatypes.ConfirmedCabOrdersMap
+	var peerlist []datatypes.NodeID
 
 	optimize := false
 	currAllNodeStates := make(map[datatypes.NodeID]fsm.NodeState)
@@ -143,6 +158,9 @@ func OptimalAssigner(
 
 	for {
 		select {
+
+		case a := <-PeerlistUpdateChan:
+			peerlist = a
 
 		// Optimize each time allNodeStates are updated
 		case a := <-AllNodeStatesChan:
@@ -171,16 +189,15 @@ func OptimalAssigner(
 		// Receive new confirmedOrders from hallConsensus
 		// Optimize if the new order is not already in the system
 		case a := <-ConfirmedCabOrdersChan:
-			fmt.Println(a)
 			// Avoid double calculation when hit desired floor
-			if reflect.DeepEqual(a, currCabOrders) {
+			if reflect.DeepEqual(a, currAllCabOrders) {
 				fmt.Println("Equal orders, breaking!")
 				break
 			}
 
-			fmt.Println("not equal, Optimizing!")
+			fmt.Println("not equal, Optimizing!") //TODO replace datatypes here??
 
-			currCabOrders = a
+			currAllCabOrders = a
 			optimize = true
 
 		default:
@@ -192,7 +209,7 @@ func OptimalAssigner(
 			optimize = false
 
 			// Calculate new optimalAssignedOrders time a message is received
-			currOptimizationInputJSON = encodeJSON(currHallOrders, currCabOrders, currAllNodeStates)
+			currOptimizationInputJSON = encodeJSON(currHallOrders, currAllCabOrders, currAllNodeStates, peerlist)
 			outJSON := runOptimizer(currOptimizationInputJSON)
 			json.Unmarshal(outJSON, &optimalAssignedOrders)
 

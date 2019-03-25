@@ -62,6 +62,7 @@ func main() {
 	orderassignmentChns := orderassignment.Channels{
 		// Needs a buffer size bigger than one because the orderassignment might send on this channel multiple times before FSM manages to receive!
 		LocallyAssignedOrdersChan: make(chan datatypes.AssignedOrdersMatrix, 2),
+		PeerlistUpdateChan: make(chan []datatypes.NodeID),
 	}
 	nodestatesChns := nodestates.Channels{
 		LocalNodeStateChan: make(chan fsm.NodeState),
@@ -77,7 +78,7 @@ func main() {
 		NewOrderChan:        make(chan elevio.ButtonEvent),
 		ConfirmedOrdersChan: make(chan datatypes.ConfirmedHallOrdersMatrix),
 		LocalOrdersChan:     make(chan datatypes.HallOrdersMatrix, 2),
-		RemoteOrdersChan:    make(chan datatypes.HallOrdersMatrix),
+		RemoteOrdersChan:    make(chan datatypes.HallOrdersMatrix,10),
 		PeerlistUpdateChan:  make(chan []datatypes.NodeID),
 	}
 	cabConsensusChns := consensus.CabOrderChannels{
@@ -85,7 +86,7 @@ func main() {
 		NewOrderChan:        make(chan int),
 		ConfirmedOrdersChan: make(chan datatypes.ConfirmedCabOrdersMap),
 		LocalOrdersChan:     make(chan datatypes.CabOrdersMap, 2),
-		RemoteOrdersChan:    make(chan datatypes.CabOrdersMap),
+		RemoteOrdersChan:    make(chan datatypes.CabOrdersMap,10),
 		PeerlistUpdateChan:  make(chan []datatypes.NodeID),
 		LostPeerChan: 		 make(chan datatypes.NodeID),
 	}
@@ -127,6 +128,7 @@ func main() {
 	go orderassignment.OptimalAssigner(
 		localID,
 		numFloors,
+		orderassignmentChns.PeerlistUpdateChan,
 		orderassignmentChns.LocallyAssignedOrdersChan,
 		hallConsensusChns.ConfirmedOrdersChan,
 		cabConsensusChns.ConfirmedOrdersChan,
@@ -137,6 +139,7 @@ func main() {
 		networkChns.LocalNodeStateChan,
 		networkChns.RemoteNodeStatesChan,
 		nodestatesChns.NodeLostChan,
+		orderassignmentChns.PeerlistUpdateChan,
 		hallConsensusChns.LocalOrdersChan,
 		hallConsensusChns.RemoteOrdersChan,
 		hallConsensusChns.PeerlistUpdateChan,

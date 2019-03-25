@@ -26,7 +26,6 @@ type CabOrderChannels struct {
 // Constructs a map with boolean arrays where only Confirmed orders are set to true
 func calcConfirmedOrders(localCabOrders datatypes.CabOrdersMap) datatypes.ConfirmedCabOrdersMap {
 
-	fmt.Println("localCabOrders: ", localCabOrders)
 	confirmedOrders := make(datatypes.ConfirmedCabOrdersMap)
 
 	for currID := range localCabOrders {
@@ -40,7 +39,6 @@ func calcConfirmedOrders(localCabOrders datatypes.CabOrdersMap) datatypes.Confir
 			}
 		}
 	}
-	fmt.Println("confirmedOrders: ", confirmedOrders)
 
 	return confirmedOrders
 }
@@ -126,14 +124,12 @@ func CabOrdersModule(
 				AckBy: []datatypes.NodeID{localID},
 			}
 
-			fmt.Println("(consensus) received new order, localCabOrders: ", localCabOrders)
 			LocalOrdersChan <- deepcopyCabOrders(localCabOrders)
 
-		// Mark completed orders as inactive and update network module and optimalAssigner
+		// Mark completed orders (with localID) as inactive and update network module and optimalAssigner
 		// with all confirmedCabOrders
 		case a := <-CompletedOrderChan:
-			fmt.Println("(consensus) received new completed")
-
+			// Will only clear on own ID
 			clearCabLight(a, TurnOffCabLightChan)
 
 			localCabOrders[localID][a] = datatypes.Req{
@@ -142,7 +138,6 @@ func CabOrdersModule(
 			}
 
 			confirmedCabOrders = calcConfirmedOrders(localCabOrders)
-			fmt.Println(confirmedCabOrders)
 
 			// Send updates to optimalAssigner
 			ConfirmedOrdersChan <- deepcopyConfirmedCabOrders(confirmedCabOrders)
@@ -195,10 +190,9 @@ func CabOrdersModule(
 					// Make flag stay true if set to true once
 					confirmedOrdersChangedFlag = confirmedOrdersChangedFlag || newInactiveFlag || newConfirmedFlag
 
-					if newInactiveFlag {
-						fmt.Println("Turn off light!")
+					if newInactiveFlag && remoteID == localID{
 						clearCabLight(floor, TurnOffCabLightChan)
-					} else if newConfirmedFlag {
+					} else if newConfirmedFlag && remoteID == localID{
 						setCabLight(floor, TurnOnCabLightChan)
 					}
 				}

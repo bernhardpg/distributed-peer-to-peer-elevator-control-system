@@ -77,7 +77,6 @@ func merge(
 			*pLocal = datatypes.Req{
 				State: datatypes.Confirmed,
 				AckBy: uniqueIDSlice(append(remote.AckBy, localID)),
-				//Signaliser datatypes.Confirmed
 			}
 			newConfirmedFlag = true
 
