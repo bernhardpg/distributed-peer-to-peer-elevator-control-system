@@ -195,7 +195,7 @@ type LocalHallOrdersMsg struct {
 }
 
 // updateConfirmedHallOrders ...
-// Constructs a boolean matrix where only confirmed orders are set to true
+// Constructs a boolean matrix where only confirmed hall orders are set to true
 func updateConfirmedHallOrders(
 	localHallOrders datatypes.HallOrdersMatrix,
 	confirmedHallOrders *datatypes.ConfirmedHallOrdersMatrix) {
@@ -244,7 +244,7 @@ func HallOrdersModule(
 	// Send initialized matrix to optimalAssigner
 	ConfirmedOrdersChan <- confirmedHallOrders
 
-	fmt.Println("(hallConsensusModule) Initialized")
+	fmt.Println("(consensus) HallOrdersModule Initialized")
 
 	// Handle consensus logic when new data enters system
 	// ------
@@ -369,61 +369,55 @@ type CabOrderChannels struct {
 	CompletedOrderChan chan int
 }
 
+// updateConfirmedCabOrders ...
+// Constructs a map with boolean arrays where only Confirmed orders are set to true
 func updateConfirmedCabOrders(
-	localCabOrders map[datatypes.NodeID][]datatypes.Req,
-	confirmedCabOrders map[datatypes.NodeID][]bool,
+	localCabOrders datatypes.CabOrdersMap,
+	confirmedCabOrders datatypes.ConfirmedCabOrdersMap,
 	localID datatypes.NodeID,
 	TurnOffCabLightChan chan<- elevio.ButtonEvent,
 	TurnOnCabLightChan chan<- elevio.ButtonEvent) {
 
 	// TODO update new nodes in confirmedCabOrders
+	for cabID := range localCabOrders {
 
-	for cabID, _ := range localCabOrders {
 		for floor := range localCabOrders[cabID] {
-
 			if localCabOrders[cabID][floor].State == datatypes.Confirmed {
-
-				//Set light if this node and not already set
-				if (cabID == localID) && !confirmedCabOrders[cabID][floor] {
-					setCabLight(floor, TurnOnCabLightChan)
-				}
-
 				confirmedCabOrders[cabID][floor] = true
 
 			} else {
-				//Clear lights if not already cleared
-				if (localCabOrders[cabID][floor].State == datatypes.Inactive) && (confirmedCabOrders[cabID][floor] == true) {
-					if cabID == localID {
-						clearCabLight(floor, TurnOffCabLightChan)
-					}
-				}
 				confirmedCabOrders[cabID][floor] = false
 			}
 		}
 	}
 }
 
-func CabOrderConsensus(
+func CabOrdersModule(
 	localID datatypes.NodeID,
 	numFloors int,
 	NewCabOrderChan <-chan int,
 	CompletedCabOrderChan <-chan int,
 	PeersListUpdateCabChan <-chan []datatypes.NodeID,
 	LostNodeChan <-chan datatypes.NodeID,
-	RemoteCabOrdersChan <-chan map[datatypes.NodeID][]datatypes.Req,
+	RemoteCabOrdersChan <-chan datatypes.CabOrdersMap,
 	TurnOffCabLightChan chan<- elevio.ButtonEvent,
 	TurnOnCabLightChan chan<- elevio.ButtonEvent,
-	ConfirmedCabOrdersToAssignerChan chan<- map[datatypes.NodeID][]bool,
-	CabOrdersToNetworkChan chan<- map[datatypes.NodeID][]datatypes.Req) {
+	ConfirmedCabOrdersToAssignerChan chan<- datatypes.ConfirmedCabOrdersMap,
+	CabOrdersToNetworkChan chan<- datatypes.CabOrdersMap) {
 
-	var localCabOrders = make(map[datatypes.NodeID][]datatypes.Req)
-	var confirmedCabOrders = make(map[datatypes.NodeID][]bool)
+	// Initialize variables
+	// ----
+	localCabOrders := make(datatypes.CabOrdersMap)
+	confirmedCabOrders := make(datatypes.ConfirmedCabOrdersMap)
 
-	peersList := []datatypes.NodeID{}
+	// Note: These variables are initialized dynamically, as opposed to the hall order matrices.
+	// Hence these values will need to be deep copied before being sent on any channels, as the
+	// values sent on the channels are merely pointers.
+	// (This is because of the way Golang handles memory allocation for maps)
+	localCabOrders[localID] = make(datatypes.CabOrdersList, numFloors)
+	confirmedCabOrders[localID] = make(datatypes.ConfirmedCabOrdersList, numFloors)
 
-	localCabOrders[localID] = make([]datatypes.Req, numFloors)
-	confirmedCabOrders[localID] = make([]bool, numFloors)
-
+	// Initialize all orders to unknown
 	for floor := range localCabOrders[localID] {
 		localCabOrders[localID][floor] = datatypes.Req{
 			State: datatypes.Unknown,
@@ -432,7 +426,9 @@ func CabOrderConsensus(
 		confirmedCabOrders[localID][floor] = false
 	}
 
-	fmt.Println("\n cabConsensusModule initialized")
+	peersList := []datatypes.NodeID{}
+
+	fmt.Println("(consensus) CabOrdersModule initialized")
 
 	for {
 		select {
@@ -464,10 +460,9 @@ func CabOrderConsensus(
 
 		case a := <-LostNodeChan:
 
-			//Assert node is in localCabOrders
+			// Assert node is in localCabOrders
 			if reqArr, ok := localCabOrders[a]; ok {
 				for floor := range reqArr {
-					//If previous state was Inactive, change to Unknown
 					if reqArr[floor].State == datatypes.Inactive {
 						localCabOrders[a][floor].State = datatypes.Unknown
 					}
@@ -481,7 +476,7 @@ func CabOrderConsensus(
 
 			newConfirmedOrInactiveFlag := false
 
-			for remoteID, _ := range remoteCabOrders {
+			for remoteID := range remoteCabOrders {
 				_, ok := localCabOrders[remoteID]
 
 				//Add Node in local map if doesn't exist

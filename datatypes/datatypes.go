@@ -7,11 +7,12 @@ import (
 type NodeID int
 
 type Req struct {
-	State ReqState;
+	State ReqState
 	AckBy []NodeID
 }
 
 type ReqState int
+
 const (
 	Unknown ReqState = iota
 	Inactive
@@ -19,10 +20,14 @@ const (
 	Confirmed
 )
 
-type HallOrdersMatrix [elevio.NumFloors][2] Req
-type ConfirmedHallOrdersMatrix [elevio.NumFloors][2] bool
+type HallOrdersMatrix [elevio.NumFloors][2]Req
+type ConfirmedHallOrdersMatrix [elevio.NumFloors][2]bool
 
-type AssignedOrdersMatrix [elevio.NumFloors][3] bool
+type CabOrdersList []Req
+type CabOrdersMap map[NodeID]CabOrdersList
+type ConfirmedCabOrdersList []bool
+type ConfirmedCabOrdersMap map[NodeID]ConfirmedCabOrdersList
+
+type AssignedOrdersMatrix [elevio.NumFloors][3]bool
 
 // Todo change cabOrder as well
-
