@@ -7,9 +7,9 @@ import (
 	"fmt"
 )
 
-// StateMachineChannels ...
-// Channels used for communication with the Elevator FSM
-type StateMachineChannels struct {
+// Channels ...
+// Channels used for communication betweem the Elevator FSM and other modules
+type Channels struct {
 	ArrivedAtFloorChan chan int 
 }
 

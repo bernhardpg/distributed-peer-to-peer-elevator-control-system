@@ -152,10 +152,11 @@ func OptimalAssigner(
 		// Optimize each time allNodeStates are updated
 		case a := <-AllNodeStatesChan:
 
-			// Don't react if no changes
+			// TODO fix datatypes
+			/*// Don't react if no changes
 			if reflect.DeepEqual(a, currAllNodeStates) {
 				break
-			}
+			}*/
 
 			currAllNodeStates = a
 			optimize = true
