@@ -7,6 +7,8 @@ import (
 	"fmt"
 )
 
+// Channels ...
+// Channels used for communication with other modules
 type Channels struct {
 	NewOrderChan        chan elevio.ButtonEvent
 	CompletedOrderChan  chan int
@@ -16,19 +18,21 @@ type Channels struct {
 	PeerlistUpdateChan  chan []datatypes.NodeID
 }
 
+// LocalHallOrdersMsg ...
+// Used for broadcasting localHallOrders to other nodes
 type LocalHallOrdersMsg struct {
 	ID         datatypes.NodeID
 	HallOrders datatypes.HallOrdersMatrix
 }
 
-// Constructs a matrix with boolean values for the confirmed orders
+// updateConfirmedHallOrders ...
+// Constructs a boolean matrix where only confirmed orders are set to true
 func updateConfirmedHallOrders(
 	localHallOrders datatypes.HallOrdersMatrix,
 	confirmedHallOrders *datatypes.ConfirmedHallOrdersMatrix) {
 
 	for floor := range localHallOrders {
 		for orderType := range localHallOrders[floor] {
-
 			if localHallOrders[floor][orderType].State == datatypes.Confirmed {
 				(*confirmedHallOrders)[floor][orderType] = true
 			} else {
@@ -64,6 +68,11 @@ func clearHallLights(currFloor int, TurnOffHallLightChan chan<- elevio.ButtonEve
 	TurnOffHallLightChan <- callUpAtFloor
 }
 
+// ConsensusModule ...
+// Handles the information distribution for hall orders between nodes.
+// Keeps track of which orders are currently confirmed by all nodes, which orders that are still pending acknowledgement,
+// and which orders that are completed (inactive). Only confirmed orders are passed along to the optimal assigner, making
+// sure that all nodes agree on the distribution of all of the orders at all times.
 func ConsensusModule(
 	localID datatypes.NodeID,
 	NewOrderChan <-chan elevio.ButtonEvent,
@@ -75,17 +84,15 @@ func ConsensusModule(
 	RemoteOrdersChan <-chan datatypes.HallOrdersMatrix,
 	PeerlistUpdateChan <-chan []datatypes.NodeID) {
 
+	// Initialize variables
+	// ----
 	// All orders will be initialized to Unknown (zero-state)
 	var localHallOrders datatypes.HallOrdersMatrix
-
 	var confirmedHallOrders datatypes.ConfirmedHallOrdersMatrix
-
-	// TODO remove localID
 	peerlist := []datatypes.NodeID{}
 
-	// Send initialized variables
+	// Send initialized variables to other modules
 	// ------
-
 	// Send initialized matrix to network module
 	LocalOrdersChan <- localHallOrders
 
@@ -96,9 +103,8 @@ func ConsensusModule(
 
 	fmt.Println("(hallConsensusModule) Initialized")
 
-	// Handle consensus when new data enters system
+	// Handle consensus logic when new data enters system
 	// ------
-
 	for {
 
 		select {
@@ -169,8 +175,6 @@ func ConsensusModule(
 				// Inform network module that changes have been made
 				LocalOrdersChan <- localHallOrders
 			}
-
-			fmt.Println("(hallConsensus) peerlist: ", peerlist)
 
 		// Merge received remoteHallOrders from network module with local data in localHallOrders
 		case a := <-RemoteOrdersChan:
