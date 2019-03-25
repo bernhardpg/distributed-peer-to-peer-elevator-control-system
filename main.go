@@ -57,15 +57,14 @@ func main() {
 		TurnOffCabLightChan:  make(chan elevio.ButtonEvent),
 		TurnOnCabLightChan:   make(chan elevio.ButtonEvent),
 	}
-	fsmChns := fsm.StateMachineChannels{
+	fsmChns := fsm.Channels{
 		ArrivedAtFloorChan: make(chan int),
 	}
-	optimalOrderAssignerChns := optimalOrderAssigner.OptimalOrderAssignerChannels{
-		NewOrderChan:              make(chan elevio.ButtonEvent), // TODO move to consensus module
+	optimalOrderAssignerChns := optimalOrderAssigner.Channels{
 		LocallyAssignedOrdersChan: make(chan datatypes.AssignedOrdersMatrix, 2),
 		// Needs a buffer size bigger than one because the optimalOrderAssigner might send on this channel multiple times before FSM manages to receive!
 	}
-	nodeStatesHandlerChns := nodeStatesHandler.NodeStatesHandlerChannels{
+	nodeStatesHandlerChns := nodeStatesHandler.Channels{
 		LocalNodeStateChan: make(chan fsm.NodeState),
 		AllNodeStatesChan:  make(chan map[datatypes.NodeID]fsm.NodeState, 2),
 		NodeLostChan:       make(chan datatypes.NodeID),
