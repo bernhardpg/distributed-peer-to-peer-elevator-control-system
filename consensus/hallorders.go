@@ -63,10 +63,11 @@ func HallOrdersModule(
 
 	// Initialize variables
 	// ----
+	peerlist := []datatypes.NodeID{}
+
 	// All orders will be initialized to Unknown (zero-state)
 	var localHallOrders datatypes.HallOrdersMatrix
 	var confirmedHallOrders datatypes.ConfirmedHallOrdersMatrix
-	peerlist := []datatypes.NodeID{}
 
 	// Send initialized variables to other modules
 	// ------
