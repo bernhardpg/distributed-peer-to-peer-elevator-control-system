@@ -161,7 +161,6 @@ func StateMachine(
 	// Initialize elevator
 	// -----
 	behaviour := InitState
-	//nextBehaviour := behaviour
 	// Note: Elevator will be able to accept orders while initializing
 
 	// Close doors and move elevator to first floor in direction Up 
@@ -174,23 +173,21 @@ func StateMachine(
 	for {
 		select {
 		
-		// Time to close door
+		// Time to close doors
 		case <- doorTimer.C:
 
-			// Don't react while initing
 			if behaviour == InitState {
 				break
 			}
 
 			closeDoors()
 
-
 			if !hasOrders(assignedOrders){
 				behaviour = IdleState
 
 			} else {
 
-				//Implies we need to change dir
+				//There are orders in the system, but but none ahead. Turn around!
 				if !ordersAhead(assignedOrders, currFloor, currDir) {
 					if currDir == Up {
 						currDir = Down
@@ -199,112 +196,105 @@ func StateMachine(
 					}
 				}
 
+
 				initiateMovement(currDir)
 				behaviour = MovingState
 
 			}
 
+			//State has changed, inform network module
 			transmitState(behaviour, currFloor, currDir, LocalNodeStateChan)
+
 
 		// Receive optimally calculated orders for this node from optimalOrderAssigner 
 		case a := <- LocallyAssignedOrdersChan:
 			assignedOrders = a
 
-		// Elevator arrives at a floor
+
 		case a := <- ArrivedAtFloorChan:
 			currFloor = a
 
-			fmt.Printf("(fsm) Reached floor %v!\n", currFloor)
-
-
-
 			switch behaviour {
 
+				// First floor in Up direction hit during init. Halt!
 				case InitState:
-
 					stopMovement()
 					behaviour = IdleState
-
-
-					CompletedHallOrderChan <- currFloor
-					//CompletedCabOrderChan <- currFloor
 					
 
 				case MovingState:
 
+					// Excuses for stopping at floor: Cab orders, relevant hall orders, no orders ahead
 					if shouldStopAtFloor(currFloor, numFloors, currDir, assignedOrders){
 
 						stopMovement()
 						openDoors()
 
 						doorTimer.Reset(doorOpenTime)
-
 						behaviour = DoorOpenState
 
-
+						// Tell hallConsensus to wipe all orders at floor
 						CompletedHallOrderChan <- currFloor
-						fmt.Printf("(fsm) From moving to door open. Notifying optAss, completed floor at %v!\n", currFloor)
-
 						//CompletedCabOrderChan <- currFloor
 						
 					}
 			}
-			// TransmitState everytime the elevator reaches a floor but doesn't stop 
+			// Changes to floor and state have been made, inform network module
 			transmitState(behaviour, currFloor, currDir, LocalNodeStateChan)
 
 			
 		}
 
+
+		// No active orders? Wait till orders come
 		if !hasOrders(assignedOrders){
-				//fmt.Println("assigned Odrders!:", assignedOrders)
 			continue
 		}
+
+		
 
 		switch behaviour {
 
 		case IdleState:
 
+			// A new order is present, findFirstOrder returns its floor  
 			requestedFloor = findFirstOrder(assignedOrders)
 
 			switch requestedFloor {
 
-			case -1:
-				break
-
+			// We're summoned to where we are. Open doors!
 			case currFloor:
 				
 				openDoors()
 				doorTimer.Reset(doorOpenTime)
 
+				// Tell hallConsensus to wipe all orders at floor
 				CompletedHallOrderChan <- currFloor
-				fmt.Printf("(fsm) From idle to door open. Notifying optAss, completed floor at %v!\n", currFloor)
-
 				//CompletedCabOrderChan <- currFloor
-
 				behaviour = DoorOpenState
 
-				transmitState(behaviour, currFloor, currDir, LocalNodeStateChan)
-
+			// Some other floor than our own is requested.
 			default:
 
 				currDir = calculateDirection(currFloor, requestedFloor)
 				initiateMovement(currDir)
-
 				behaviour = MovingState
-
-				transmitState(behaviour, currFloor, currDir, LocalNodeStateChan)
 			}
+
+			// Changes to state have been made, inform network module
+			transmitState(behaviour, currFloor, currDir, LocalNodeStateChan)
 
 		
 		case DoorOpenState:
 
 			requestedFloor = findFirstOrder(assignedOrders)
+
+			// Refresh door timer if summoned to where at with doors open
 			if requestedFloor == currFloor {
 				doorTimer.Reset(doorOpenTime)
 
+				// Tell hallConsensus to wipe all orders at floor
 				CompletedHallOrderChan <- currFloor
-				fmt.Printf("(fsm) From door open to door open. Notifying optAss, completed floor at %v!\n", currFloor)
-
 				//CompletedCabOrderChan <- currFloor
 			}
 
