@@ -25,24 +25,13 @@ type LocalHallOrdersMsg struct {
 func updateConfirmedHallOrders(
 	localHallOrders datatypes.HallOrdersMatrix, 
 	confirmedHallOrders *datatypes.ConfirmedHallOrdersMatrix) {
-	//TurnOffHallLightChan chan<- elevio.ButtonEvent, 
-	//TurnOnHallLightChan chan<- elevio.ButtonEvent) {
 
 	for floor := range localHallOrders {
 		for orderType := range localHallOrders[floor] {
 
 			if localHallOrders[floor][orderType].State == datatypes.Confirmed {
-				/*//Set light if not already set
-				if !(*confirmedHallOrders)[floor][orderType] {
-					setHallLight(floor, orderType, TurnOnHallLightChan)
-				}*/	
-
 				(*confirmedHallOrders)[floor][orderType] = true
 			} else {
-				/*//Clear lights if not already cleared
-				if (localHallOrders[floor][orderType].State == datatypes.Inactive) && ((*confirmedHallOrders)[floor][orderType] == true) {
-					clearHallLights(floor, TurnOffHallLightChan) 
-				}*/
 				(*confirmedHallOrders)[floor][orderType] = false
 			}			
 		}		
@@ -218,14 +207,13 @@ func ConsensusModule(
 
 			// Only update confirmedHallOrders when orders are changed to inactive or confirmed
 			if confirmedOrdersChangedFlag {
-				updateConfirmedHallOrders(localHallOrders, &confirmedHallOrders)
+				updateConfirmedHallOrders(localHallOrders, &confirmedHallOrders) // TODO change one by one inside loop?
 
 				ConfirmedOrdersChan <- confirmedHallOrders
 			}
 
 			// Update network module with new data
 			LocalOrdersChan <- localHallOrders
-			fmt.Println(localHallOrders)
 		}
 	}
 }

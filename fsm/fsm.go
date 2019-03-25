@@ -5,7 +5,6 @@ import (
 	"../elevio"
 	"time"
 	"fmt"
-	"reflect"
 )
 
 // StateMachineChannels ...
@@ -24,8 +23,8 @@ const (
 
 type OrderDir int;
 const (
-	Up OrderDir = iota;
-	Down;
+	Up OrderDir = iota
+	Down   		
 )
 
 type NodeState struct {
@@ -35,100 +34,27 @@ type NodeState struct {
 }
 
 
-func calculateNextOrder(
-	behaviour NodeBehaviour,
-	currFloor int, currDir OrderDir,
-	assignedOrders datatypes.AssignedOrdersMatrix) int {
-
-	numFloors := len(assignedOrders);
-	skipCurrFloor := 0;
-
-	// Don't check currFloor if moving
-	if behaviour == MovingState {
-		skipCurrFloor = 1;
-	}
-
-	// Find the order closest to floor currFloor, checking only orders in direction currDir first
-	if currDir == Up {
-		// Look for orders in Up direction
-		for floor := currFloor + skipCurrFloor; floor <= numFloors - 1; floor++ {
-			for orderType := elevio.BT_HallUp; orderType <= elevio.BT_Cab; orderType++ {
-				if orderType == elevio.BT_HallDown {
-					// Skip orders of opposite directon
-					continue;
-				}
-				if assignedOrders[floor][orderType] == true {
-					return floor;
-				}
-			}
-		}
-		// Check orders of opposite directon last
-		for floor := numFloors - 1; floor >= currFloor + skipCurrFloor; floor-- {
-			if assignedOrders[floor][elevio.BT_HallDown] == true {
-				return floor;
-
-			}
-		}
-	} else {
-		// Look for orders in Down direction
-		for floor := currFloor - skipCurrFloor; floor >= 0; floor-- {
-			for orderType := elevio.BT_HallUp; orderType <= elevio.BT_Cab; orderType++ {
-				if orderType == elevio.BT_HallUp {
-					// Skip orders of opposite directon
-					continue;
-				}
-				if assignedOrders[floor][orderType] == true {
-					return floor;
-				}
-			}
-		}
-		// Check orders of opposite directon last
-		for floor := 0; floor <= currFloor - skipCurrFloor; floor++ {
-			if assignedOrders[floor][elevio.BT_HallUp] == true {
-				return floor;
-			}
-		}
-	}
-
-	// Check other directions if no orders are found
-	if currDir == Up {
-		return calculateNextOrder(behaviour, currFloor, Down, assignedOrders);
-	}
-	return calculateNextOrder(behaviour, currFloor, Up, assignedOrders);
-}
-
-func hasOrders(assignedOrders datatypes.AssignedOrdersMatrix) (bool) {
+func hasOrders(assignedOrders datatypes.AssignedOrdersMatrix) bool {
 	for floor := 0; floor < len(assignedOrders); floor++ {
 		for orderType := elevio.BT_HallUp; orderType <= elevio.BT_Cab; orderType++ {
-			if assignedOrders[floor][orderType] == true {
-				return true;
+			if assignedOrders[floor][orderType] {
+				return true
 			}
 		}
 	}
-
-	return false;
+	return false
 }
 
-func calculateDirection(
-	numFloors int,
-	currFloor int,
-	currOrder int,
-	currDir OrderDir) (OrderDir) {
 
-	if currOrder == currFloor {
-		// Change direction if elev is at top or bottom floor
-		if currFloor == 0 {
-			return Up;
-		} else if currFloor == numFloors - 1 {
-			return Down;
+func findFirstOrder(assignedOrders datatypes.AssignedOrdersMatrix) int {
+	for floor := 0; floor < len(assignedOrders); floor++ {
+		for orderType := elevio.BT_HallUp; orderType <= elevio.BT_Cab; orderType++ {
+			if assignedOrders[floor][orderType] {
+				return floor
+			}
 		}
-		return currDir;
 	}
-
-	if currOrder > currFloor {
-		return Up;
-	}
-	return Down
+	return -1
 }
 
 func transmitState(
@@ -142,8 +68,74 @@ func transmitState(
 		Floor: currFloor,
 		Dir: currDir, 
 	}
-
 	LocalNodeStateChan <- currNodeState
+}
+
+func ordersAhead(assignedOrders datatypes.AssignedOrdersMatrix, currFloor int, currDir OrderDir) bool {
+
+	if currDir == Up {
+
+		for floor := currFloor + 1; floor < len(assignedOrders); floor++ {
+			fmt.Printf("(fsm) ordersAhead: iterating through floor %v from currFloor %v.\n", floor, currFloor)
+			for orderType := elevio.BT_HallUp; orderType <= elevio.BT_Cab; orderType++ {
+				if assignedOrders[floor][orderType] {
+					return true
+				}
+			}
+		} 
+
+	} else {
+		for floor := currFloor - 1; floor >= 0; floor-- {
+			for orderType := elevio.BT_HallUp; orderType <= elevio.BT_Cab; orderType++ {
+				if assignedOrders[floor][orderType] {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+
+func calculateDirection(currFloor int, requestedFloor int) OrderDir {
+	if currFloor < requestedFloor {
+		return Up
+	}
+		return Down
+	}
+
+func shouldStopAtFloor(currFloor int, numFloors int, currDir OrderDir, assignedOrders datatypes.AssignedOrdersMatrix) bool {
+
+	for orderType := elevio.BT_HallUp; orderType <= elevio.BT_Cab; orderType++ {
+
+		if orderType == elevio.BT_HallUp && currDir == Down {
+			continue
+		} else if orderType == elevio.BT_HallDown && currDir == Up {
+			continue
+		}
+		if assignedOrders[currFloor][orderType]{
+			return true
+		}
+	}
+
+	return !ordersAhead(assignedOrders, currFloor, currDir)		
+}
+
+func initiateMovement(currDir OrderDir){
+	if currDir == Up {
+		elevio.SetMotorDirection(elevio.MD_Up)
+	} else {
+		elevio.SetMotorDirection(elevio.MD_Down)
+	}
+}
+func stopMovement(){
+	elevio.SetMotorDirection(elevio.MD_Stop)
+}
+func openDoors(){
+	elevio.SetDoorOpenLamp(true)
+}
+func closeDoors(){
+	elevio.SetDoorOpenLamp(false)
 }
 
 // StateMachine ...
@@ -158,29 +150,24 @@ func StateMachine(
 
 	// Initialize variables	
 	// -----
-	doorOpenTime := 3 * time.Second;
-	currOrder := -1;
-	currFloor := -1;
-	currDir := Up;
-	doorTimer := time.NewTimer(0);
+	doorOpenTime := 3 * time.Second
+	currFloor := -1
+	requestedFloor := -1
+	currDir := Up
+	doorTimer := time.NewTimer(0)
 
 	var assignedOrders datatypes.AssignedOrdersMatrix
-	fmt.Println("(fsm) assignedOrders: ", assignedOrders)
 
 	// Initialize elevator
 	// -----
 	behaviour := InitState
-	nextBehaviour := behaviour
+	//nextBehaviour := behaviour
 	// Note: Elevator will be able to accept orders while initializing
 
-
-	// Used to transition to states when no channel action
-	// or when transitioning from a state to the same state
-	updateState := false;
-
 	// Close doors and move elevator to first floor in direction Up 
-	elevio.SetDoorOpenLamp(false)
-	elevio.SetMotorDirection(elevio.MD_Up)
+	closeDoors()
+	initiateMovement(currDir)
+	
 	
 	// State selector
 	// -----
@@ -190,116 +177,134 @@ func StateMachine(
 		// Time to close door
 		case <- doorTimer.C:
 
-
 			// Don't react while initing
 			if behaviour == InitState {
-				break;
-			}
-	
-			// Transition to next behaviour when door has been open
-			// for desired period of time
-			elevio.SetDoorOpenLamp(false)
-			if hasOrders(assignedOrders) {
-				nextBehaviour = MovingState
-			} else {
-				nextBehaviour = IdleState
-			}
-
-// NOTE! Will currently get stuck with open doors ebcause orders are not currently cleared
-
-		// Receive optimally calculated orders for this node from optimalOrderAssigner 
-		case a := <- LocallyAssignedOrdersChan:
-
-			// Mark the current floor as complete if doors already open in desired floor
-			// (Necessary to handle button spamming in same floor)
-			if behaviour == DoorOpenState && currOrder == currFloor {
-				CompletedHallOrderChan <- currFloor
-//				CompletedCabOrderChan <- currFloor
-			}
-
-			// Only react to changes
-			if reflect.DeepEqual(a, assignedOrders) {
 				break
 			}
 
-			// Transition to MovingState (where new currOrder and currDir will be calculated) if there are new orders
-			assignedOrders = a
-			if hasOrders(assignedOrders) && behaviour != DoorOpenState {
-				nextBehaviour = MovingState
-				updateState = true
+			closeDoors()
+
+
+			if !hasOrders(assignedOrders){
+				behaviour = IdleState
+
+			} else {
+
+				//Implies we need to change dir
+				if !ordersAhead(assignedOrders, currFloor, currDir) {
+					if currDir == Up {
+						currDir = Down
+					} else {
+						currDir = Up
+					}
+				}
+
+				initiateMovement(currDir)
+				behaviour = MovingState
+
 			}
+
+			transmitState(behaviour, currFloor, currDir, LocalNodeStateChan)
+
+		// Receive optimally calculated orders for this node from optimalOrderAssigner 
+		case a := <- LocallyAssignedOrdersChan:
+			assignedOrders = a
 
 		// Elevator arrives at a floor
 		case a := <- ArrivedAtFloorChan:
-			currFloor = a;
+			currFloor = a
 
-			// Finish init sequence
-			if behaviour == InitState {
-				nextBehaviour = IdleState
+			fmt.Printf("(fsm) Reached floor %v!\n", currFloor)
+
+
+
+			switch behaviour {
+
+				case InitState:
+
+					stopMovement()
+					behaviour = IdleState
+
+
+					CompletedHallOrderChan <- currFloor
+					//CompletedCabOrderChan <- currFloor
+					
+
+				case MovingState:
+
+					if shouldStopAtFloor(currFloor, numFloors, currDir, assignedOrders){
+
+						stopMovement()
+						openDoors()
+
+						doorTimer.Reset(doorOpenTime)
+
+						behaviour = DoorOpenState
+
+
+						CompletedHallOrderChan <- currFloor
+						//CompletedCabOrderChan <- currFloor
+						
+					}
 			}
-
-			// Open doors at desired floor and signal that the order is complete
-			if currFloor == currOrder {
-				CompletedHallOrderChan <- currFloor
-//				CompletedCabOrderChan <- currFloor
-				nextBehaviour = DoorOpenState
-				break;
-			}
-
 			// TransmitState everytime the elevator reaches a floor but doesn't stop 
 			transmitState(behaviour, currFloor, currDir, LocalNodeStateChan)
 
 		default:
-			// Required to make State Transition Handling work even when there are no channel action
 
-		}
 
-		// State Transition Handling
-		// -----
-		if nextBehaviour != behaviour || updateState {
-			// Set new current behaviour
-			switch nextBehaviour {
-
-				// Transitioning to DoorOpenState will stop the elevator,
-				// open the door (if not already opened) and restart the door timer
-				case DoorOpenState:
-					elevio.SetMotorDirection(elevio.MD_Stop)
-					elevio.SetDoorOpenLamp(true)
-					doorTimer.Reset(doorOpenTime)
-					updateState = false
-
-				// Transitioning to IdleState stops the elevator
-				case IdleState:
-					elevio.SetMotorDirection(elevio.MD_Stop)
-
-				// Transitioning to MovingState will always calculate new currOrder and currDir 
-				case MovingState:
-					currOrder = calculateNextOrder(behaviour, currFloor, currDir, assignedOrders)
-					currDir = calculateDirection(numFloors, currFloor, currOrder, currDir)
-
-					// Go directly to doorOpenState if already at desired floor and not moving
-					if currOrder == currFloor && behaviour != MovingState {
-						CompletedHallOrderChan <- currFloor
-//						CompletedCabOrderChan <- currFloor
-						nextBehaviour = DoorOpenState
-						updateState = true
-						break
-					}
-
-					// Set motor direction
-					if currDir == Up {
-						elevio.SetMotorDirection(elevio.MD_Up)
-					} else {
-						elevio.SetMotorDirection(elevio.MD_Down)
-					}
-					
-					// No need to change state immediately
-					updateState = false
+			if !hasOrders(assignedOrders){
+				//fmt.Println("assigned Odrders!:", assignedOrders)
+				break
 			}
-			behaviour = nextBehaviour
-			// Transmit behaviour each time behaviour is changed
-			transmitState(behaviour, currFloor, currDir, LocalNodeStateChan)
+
+			switch behaviour {
+
+			case IdleState:
+
+				fmt.Println("(fsm) Has orders, is in idle!")
+
+
+				requestedFloor = findFirstOrder(assignedOrders)
+
+				switch requestedFloor {
+
+				case -1:
+					break
+
+				case currFloor:
+					
+					openDoors()
+					doorTimer.Reset(doorOpenTime)
+
+					CompletedHallOrderChan <- currFloor
+					//CompletedCabOrderChan <- currFloor
+
+					behaviour = DoorOpenState
+
+					transmitState(behaviour, currFloor, currDir, LocalNodeStateChan)
+
+				default:
+					currDir = calculateDirection(currFloor, requestedFloor)
+					initiateMovement(currDir)
+
+					behaviour = MovingState
+
+					transmitState(behaviour, currFloor, currDir, LocalNodeStateChan)
+				}
+
+			
+			case DoorOpenState:
+
+				requestedFloor = findFirstOrder(assignedOrders)
+				if requestedFloor == currFloor {
+					doorTimer.Reset(doorOpenTime)
+
+					CompletedHallOrderChan <- currFloor
+					//CompletedCabOrderChan <- currFloor
+				}
+
+			}
 		}
 	}
 }
-

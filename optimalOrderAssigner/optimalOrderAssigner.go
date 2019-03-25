@@ -184,9 +184,9 @@ func Assigner(
 			optimize = false
 
 			// Calculate new optimalAssignedOrders time a message is received
-			currOptimizationInputJSON = encodeJSON(currHallOrders, currCabOrders, currAllNodeStates);
-			outJSON := runOptimizer(currOptimizationInputJSON);
-			json.Unmarshal(outJSON, &optimalAssignedOrders);
+			currOptimizationInputJSON = encodeJSON(currHallOrders, currCabOrders, currAllNodeStates)
+			outJSON := runOptimizer(currOptimizationInputJSON)
+			json.Unmarshal(outJSON, &optimalAssignedOrders)
 
 			currLocallyAssignedOrders := optimalAssignedOrders[string(localID)]
 
