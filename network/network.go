@@ -4,7 +4,6 @@ import (
 	"time"
 	"fmt"
 	"strconv"
-	"math/rand"
 	"../datatypes"
 	"./driver/bcast"
 	"./driver/peers"
@@ -14,7 +13,7 @@ import (
 )
 
 
-const sendRate = 50 * time.Millisecond
+const sendRate = 20 * time.Millisecond
 
 type Channels struct {
 	LocalNodeStateChan chan fsm.NodeState
@@ -54,14 +53,7 @@ func Module(
 
 	// Initialize variables
 	// -----
-
-	rand.Seed(time.Now().UnixNano())
-	min := 10
-    max := 30
-    jitter := rand.Intn(max - min) + min
-
-
-	bcastPeriod := time.Duration(200 + jitter) * time.Millisecond // TODO change this
+	bcastPeriod := 200 * time.Millisecond // TODO change this
 	bcastTimer := time.NewTimer(bcastPeriod)
 
 	localState := fsm.NodeState {}

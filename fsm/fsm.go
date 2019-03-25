@@ -243,6 +243,8 @@ func StateMachine(
 
 
 						CompletedHallOrderChan <- currFloor
+						fmt.Printf("(fsm) From moving to door open. Notifying optAss, completed floor at %v!\n", currFloor)
+
 						//CompletedCabOrderChan <- currFloor
 						
 					}
@@ -250,61 +252,62 @@ func StateMachine(
 			// TransmitState everytime the elevator reaches a floor but doesn't stop 
 			transmitState(behaviour, currFloor, currDir, LocalNodeStateChan)
 
-		default:
-
-
-			if !hasOrders(assignedOrders){
-				//fmt.Println("assigned Odrders!:", assignedOrders)
-				break
-			}
-
-			switch behaviour {
-
-			case IdleState:
-
-				fmt.Println("(fsm) Has orders, is in idle!")
-
-
-				requestedFloor = findFirstOrder(assignedOrders)
-
-				switch requestedFloor {
-
-				case -1:
-					break
-
-				case currFloor:
-					
-					openDoors()
-					doorTimer.Reset(doorOpenTime)
-
-					CompletedHallOrderChan <- currFloor
-					//CompletedCabOrderChan <- currFloor
-
-					behaviour = DoorOpenState
-
-					transmitState(behaviour, currFloor, currDir, LocalNodeStateChan)
-
-				default:
-					currDir = calculateDirection(currFloor, requestedFloor)
-					initiateMovement(currDir)
-
-					behaviour = MovingState
-
-					transmitState(behaviour, currFloor, currDir, LocalNodeStateChan)
-				}
-
 			
-			case DoorOpenState:
+		}
 
-				requestedFloor = findFirstOrder(assignedOrders)
-				if requestedFloor == currFloor {
-					doorTimer.Reset(doorOpenTime)
+		if !hasOrders(assignedOrders){
+				//fmt.Println("assigned Odrders!:", assignedOrders)
+			continue
+		}
 
-					CompletedHallOrderChan <- currFloor
-					//CompletedCabOrderChan <- currFloor
-				}
+		switch behaviour {
 
+		case IdleState:
+
+			requestedFloor = findFirstOrder(assignedOrders)
+
+			switch requestedFloor {
+
+			case -1:
+				break
+
+			case currFloor:
+				
+				openDoors()
+				doorTimer.Reset(doorOpenTime)
+
+				CompletedHallOrderChan <- currFloor
+				fmt.Printf("(fsm) From idle to door open. Notifying optAss, completed floor at %v!\n", currFloor)
+
+				//CompletedCabOrderChan <- currFloor
+
+				behaviour = DoorOpenState
+
+				transmitState(behaviour, currFloor, currDir, LocalNodeStateChan)
+
+			default:
+
+				currDir = calculateDirection(currFloor, requestedFloor)
+				initiateMovement(currDir)
+
+				behaviour = MovingState
+
+				transmitState(behaviour, currFloor, currDir, LocalNodeStateChan)
 			}
+
+		
+		case DoorOpenState:
+
+			requestedFloor = findFirstOrder(assignedOrders)
+			if requestedFloor == currFloor {
+				doorTimer.Reset(doorOpenTime)
+
+				CompletedHallOrderChan <- currFloor
+				fmt.Printf("(fsm) From door open to door open. Notifying optAss, completed floor at %v!\n", currFloor)
+
+				//CompletedCabOrderChan <- currFloor
+			}
+
 		}
 	}
 }
