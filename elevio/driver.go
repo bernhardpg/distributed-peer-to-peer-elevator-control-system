@@ -1,43 +1,58 @@
 package elevio
 
-import "time"
-import "sync"
-import "net"
-import "fmt"
+import (
+	"fmt"
+	"net"
+	"sync"
+	"time"
+)
 
+// NumFloors ...
+// Used as a global const in the entire project.
+// Will be used to initialize size of matrices for the different types defined in 'datatypes.go'
 const NumFloors int = 4
 
 const _pollRate = 20 * time.Millisecond
 
-var _initialized bool = false
+var _initialized = false
 var _mtx sync.Mutex
 var _conn net.Conn
-
 
 // MotorDirection ...
 // Data type for holding the direction of the elevator motor
 type MotorDirection int
 
 const (
-	MD_Up   MotorDirection = 1
-	MD_Down                = -1
-	MD_Stop                = 0
+	// MD_Up ... Used to Set elevator motor direction to Up
+	MD_Up MotorDirection = 1
+	// MD_Down ... Used to Set elevator motor direction to Down
+	MD_Down = -1
+	// MD_Stop ... Used to stop elevator motor
+	MD_Stop = 0
 )
 
-
+// ButtonType ...
+// Contains the information of the order type of the button pressed
 type ButtonType int
 
 const (
-	BT_HallUp   ButtonType = 0
-	BT_HallDown            = 1
-	BT_Cab                 = 2
+	// BT_HallUp ... The button press was for a hall order in the Up direction
+	BT_HallUp ButtonType = 0
+	// BT_HallDown ... The button press was for a hall order in the Down direction
+	BT_HallDown = 1
+	// BT_Cab ... The button press was for a cab order
+	BT_Cab = 2
 )
 
+// ButtonEvent ...
+// Is used by the entire project to represent a buttonPress, containing information of both the floor and the order type
 type ButtonEvent struct {
 	Floor  int
 	Button ButtonType
 }
 
+// Init ...
+// Connects to the elevator hardware or the elevator simulator through TCP
 func Init(addr string) {
 	if _initialized {
 		fmt.Println("Driver already initialized!")
@@ -52,37 +67,47 @@ func Init(addr string) {
 	_initialized = true
 }
 
+// SetMotorDirection ...
+// Sets the direction of the physical motor
 func SetMotorDirection(dir MotorDirection) {
 	_mtx.Lock()
 	defer _mtx.Unlock()
 	_conn.Write([]byte{1, byte(dir), 0, 0})
 }
 
+// SetButtonLamp ...
+// Ignites the lamp on a button
 func SetButtonLamp(button ButtonType, floor int, value bool) {
 	_mtx.Lock()
 	defer _mtx.Unlock()
 	_conn.Write([]byte{2, byte(button), byte(floor), toByte(value)})
 }
 
+// SetFloorIndicator ...
+// Ignites the lamp indicating the current floor
 func SetFloorIndicator(floor int) {
 	_mtx.Lock()
 	defer _mtx.Unlock()
 	_conn.Write([]byte{3, byte(floor), 0, 0})
 }
 
+// SetDoorOpenLamp ...
+// Ignites the lamp representing that the door is open
 func SetDoorOpenLamp(value bool) {
 	_mtx.Lock()
 	defer _mtx.Unlock()
 	_conn.Write([]byte{4, toByte(value), 0, 0})
 }
 
+// SetStopLamp ...
+// Ignites the red 'stop' button
 func SetStopLamp(value bool) {
 	_mtx.Lock()
 	defer _mtx.Unlock()
 	_conn.Write([]byte{5, toByte(value), 0, 0})
 }
 
-func PollButtons(receiver chan<- ButtonEvent) {
+func pollButtons(receiver chan<- ButtonEvent) {
 	prev := make([][3]bool, NumFloors)
 	for {
 		time.Sleep(_pollRate)
@@ -98,7 +123,7 @@ func PollButtons(receiver chan<- ButtonEvent) {
 	}
 }
 
-func PollFloorSensor(receiver chan<- int) {
+func pollFloorSensor(receiver chan<- int) {
 	prev := -1
 	for {
 		time.Sleep(_pollRate)
@@ -110,7 +135,7 @@ func PollFloorSensor(receiver chan<- int) {
 	}
 }
 
-func PollStopButton(receiver chan<- bool) {
+func pollStopButton(receiver chan<- bool) {
 	prev := false
 	for {
 		time.Sleep(_pollRate)
@@ -122,7 +147,7 @@ func PollStopButton(receiver chan<- bool) {
 	}
 }
 
-func PollObstructionSwitch(receiver chan<- bool) {
+func pollObstructionSwitch(receiver chan<- bool) {
 	prev := false
 	for {
 		time.Sleep(_pollRate)
@@ -151,9 +176,8 @@ func getFloor() int {
 	_conn.Read(buf[:])
 	if buf[1] != 0 {
 		return int(buf[2])
-	} else {
-		return -1
 	}
+	return -1
 }
 
 func getStop() bool {
@@ -175,7 +199,7 @@ func getObstruction() bool {
 }
 
 func toByte(a bool) byte {
-	var b byte = 0
+	var b byte
 	if a {
 		b = 1
 	}
@@ -183,49 +207,9 @@ func toByte(a bool) byte {
 }
 
 func toBool(a byte) bool {
-	var b bool = false
+	b := false
 	if a != 0 {
 		b = true
 	}
 	return b
-}
-
-// Main routine for reading io values and passing them on to corresponding channels
-func IOReader(
-	NewHallOrderChan chan<- ButtonEvent,
-	NewCabOrderChan chan<- int,
-	ArrivedAtFloorChan chan<- int,
-	FloorIndicatorChan chan<- int) {
-
-	drv_buttons := make(chan ButtonEvent)
-	drv_floors := make(chan int)
-	drv_obstr := make(chan bool)
-	drv_stop := make(chan bool)
-
-	go PollButtons(drv_buttons)
-	go PollFloorSensor(drv_floors)
-	go PollObstructionSwitch(drv_obstr)
-	go PollStopButton(drv_stop)
-
-	for {
-		select {
-		case a := <-drv_buttons:
-
-			if (a.Button == BT_HallDown || a.Button == BT_HallUp){
-				NewHallOrderChan <- a
-			} else if a.Button == BT_Cab{
-				//NewCabOrderChan <- a.Floor
-			}
-
-		case a := <-drv_floors:
-			ArrivedAtFloorChan <- a
-			FloorIndicatorChan <- a
-
-		case a := <-drv_obstr:
-			fmt.Printf("(elevio) Obstruction: %+v\n", a)
-
-		case a := <-drv_stop:
-			fmt.Printf("(elevio) Stop: %+v\n", a)
-		}
-	}
 }

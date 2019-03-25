@@ -1,92 +1,76 @@
-package hallConsensus
+package consensus
 
-import(
+// ----------
+// Hall Order Consensus
+// ----------
+
+import (
+	"../datatypes"
+	"../elevio"
 	"fmt"
-	"../../datatypes"
-	"../../elevio"
-	"../generalConsensusModule"
-	)
+)
 
-type Channels struct {
-	NewOrderChan chan elevio.ButtonEvent
-	CompletedOrderChan chan int
+// HallOrderChannels ...
+// Channels used for communication related to consensus of hall orders with other modules
+type HallOrderChannels struct {
+	NewOrderChan        chan elevio.ButtonEvent
+	CompletedOrderChan  chan int
 	ConfirmedOrdersChan chan datatypes.ConfirmedHallOrdersMatrix
-	LocalOrdersChan chan datatypes.HallOrdersMatrix
-	RemoteOrdersChan chan datatypes.HallOrdersMatrix
-	PeerlistUpdateChan chan []datatypes.NodeID
+	LocalOrdersChan     chan datatypes.HallOrdersMatrix
+	RemoteOrdersChan    chan datatypes.HallOrdersMatrix
+	PeerlistUpdateChan  chan []datatypes.NodeID
 }
 
+// LocalHallOrdersMsg ...
+// Used for broadcasting localHallOrders to other nodes
 type LocalHallOrdersMsg struct {
-	ID datatypes.NodeID
+	ID         datatypes.NodeID
 	HallOrders datatypes.HallOrdersMatrix
 }
 
-// Constructs a matrix with boolean values for the confirmed orders
+// updateConfirmedHallOrders ...
+// Constructs a boolean matrix where only confirmed hall orders are set to true
 func updateConfirmedHallOrders(
-	localHallOrders datatypes.HallOrdersMatrix, 
+	localHallOrders datatypes.HallOrdersMatrix,
 	confirmedHallOrders *datatypes.ConfirmedHallOrdersMatrix) {
 
 	for floor := range localHallOrders {
 		for orderType := range localHallOrders[floor] {
-
 			if localHallOrders[floor][orderType].State == datatypes.Confirmed {
 				(*confirmedHallOrders)[floor][orderType] = true
 			} else {
 				(*confirmedHallOrders)[floor][orderType] = false
-			}			
-		}		
+			}
+		}
 	}
 }
 
-func setHallLight(currFloor int, orderType int, TurnOnHallLightChan chan<- elevio.ButtonEvent) {
-	buttonDir := (elevio.ButtonType)(orderType)
-
-	buttonToIlluminate := elevio.ButtonEvent {
-		Floor: currFloor,
-		Button: buttonDir,
-	}
-	TurnOnHallLightChan <- buttonToIlluminate
-}
-
-func clearHallLights(currFloor int, TurnOffHallLightChan chan<- elevio.ButtonEvent) {
-
-	callUpAtFloor := elevio.ButtonEvent {
-		Floor: currFloor,
-		Button: elevio.BT_HallUp,
-	}
-
-	callDownAtFloor := elevio.ButtonEvent {
-		Floor: currFloor,
-		Button: elevio.BT_HallDown,
-	}
-
-	TurnOffHallLightChan <- callDownAtFloor
-	TurnOffHallLightChan <- callUpAtFloor	
-}
-
-
-func ConsensusModule(
+// HallOrdersModule ...
+// Handles the information distribution for hall orders between nodes.
+// Keeps track of which orders are currently confirmed by all nodes, which orders that are still pending acknowledgement,
+// and which orders that are completed (Inactive). Only confirmed orders are passed along to the optimal assigner, making
+// sure that all nodes agree on the distribution of all of the orders at all times.
+func HallOrdersModule(
 	localID datatypes.NodeID,
 	NewOrderChan <-chan elevio.ButtonEvent,
 	ConfirmedOrdersChan chan<- datatypes.ConfirmedHallOrdersMatrix,
-	CompletedOrderChan <-chan int, 
+	CompletedOrderChan <-chan int,
 	TurnOffHallLightChan chan<- elevio.ButtonEvent,
 	TurnOnHallLightChan chan<- elevio.ButtonEvent,
 	LocalOrdersChan chan<- datatypes.HallOrdersMatrix,
 	RemoteOrdersChan <-chan datatypes.HallOrdersMatrix,
-	PeerlistUpdateChan <-chan [] datatypes.NodeID) {
+	PeerlistUpdateChan <-chan []datatypes.NodeID) {
+
+	// Initialize variables
+	// ----
+	peerlist := []datatypes.NodeID{}
 
 	// All orders will be initialized to Unknown (zero-state)
 	var localHallOrders datatypes.HallOrdersMatrix
-
 	var confirmedHallOrders datatypes.ConfirmedHallOrdersMatrix
 
-	// TODO remove localID
-	peerlist := [] datatypes.NodeID {}
-	
-	// Send initialized variables
+	// Send initialized variables to other modules
 	// ------
-
 	// Send initialized matrix to network module
 	LocalOrdersChan <- localHallOrders
 
@@ -95,19 +79,16 @@ func ConsensusModule(
 	// Send initialized matrix to optimalAssigner
 	ConfirmedOrdersChan <- confirmedHallOrders
 
+	fmt.Println("(consensus) HallOrdersModule Initialized")
 
-	fmt.Println("(hallConsensusModule) Initialized")
-
-
-	// Handle consensus when new data enters system
+	// Handle consensus logic when new data enters system
 	// ------
-
 	for {
 
 		select {
 
 		// Store new local orders as pendingAck and update network module
-		case a := <- NewOrderChan:
+		case a := <-NewOrderChan:
 
 			// Don't accept new hall orders when alone on network
 			// (Otherwise inactive orders might override confirmed orders when reconnecting to network)
@@ -117,11 +98,11 @@ func ConsensusModule(
 
 			// Set order to pendingAck
 			// (Make sure to never access elements outside of array)
-			if (a.Button == elevio.BT_HallUp || a.Button == elevio.BT_HallDown) {
+			if a.Button == elevio.BT_HallUp || a.Button == elevio.BT_HallDown {
 
-				localHallOrders[a.Floor][a.Button] = datatypes.Req {
+				localHallOrders[a.Floor][a.Button] = datatypes.Req{
 					State: datatypes.PendingAck,
-					AckBy: [] datatypes.NodeID { localID },
+					AckBy: []datatypes.NodeID{localID},
 				}
 
 				// Send updates to network module
@@ -129,19 +110,18 @@ func ConsensusModule(
 
 			}
 
-
 		// Mark completed orders as inactive and update network module and optimalAssigner
 		// with all confirmedHallOrders
-		case a := <- CompletedOrderChan:
-			
+		case a := <-CompletedOrderChan:
+
 			clearHallLights(a, TurnOffHallLightChan)
 
 			// Set both dir Up and dir Down to inactive
-			inactiveReq := datatypes.Req {
-				State: datatypes.Inactive, 
+			inactiveReq := datatypes.Req{
+				State: datatypes.Inactive,
 				AckBy: nil, // Delete ackBy list when transitioning to inactive
 			}
-			localHallOrders[a] = [2] datatypes.Req {
+			localHallOrders[a] = [2]datatypes.Req{
 				inactiveReq,
 				inactiveReq,
 			}
@@ -150,15 +130,14 @@ func ConsensusModule(
 
 			// Send updates to optimalAssigner
 			ConfirmedOrdersChan <- confirmedHallOrders
-			
+
 			// Send updates to network module
 			LocalOrdersChan <- localHallOrders
 
-
 		// Received changes in peerlist from network module
-		case a := <- PeerlistUpdateChan:
+		case a := <-PeerlistUpdateChan:
 
-			peerlist = generalConsensusModule.UniqueIDSlice(a)
+			peerlist = uniqueIDSlice(a)
 
 			// Set all inactive hall orders to unknown if alone on network
 			if len(peerlist) <= 1 {
@@ -170,16 +149,13 @@ func ConsensusModule(
 						}
 					}
 				}
-				
+
 				// Inform network module that changes have been made
-				LocalOrdersChan <- localHallOrders		
+				LocalOrdersChan <- localHallOrders
 			}
 
-			fmt.Println("(hallConsensus) peerlist: ", peerlist)
-
-		
-		// Merge received remoteHallOrders from network module with local data in localHallOrders 
-		case a := <- RemoteOrdersChan:
+		// Merge received remoteHallOrders from network module with local data in localHallOrders
+		case a := <-RemoteOrdersChan:
 
 			remoteHallOrders := a
 
@@ -192,7 +168,7 @@ func ConsensusModule(
 					pLocal := &localHallOrders[floor][orderType]
 					remote := remoteHallOrders[floor][orderType]
 
-					newInactiveFlag, newConfirmedFlag := generalConsensusModule.Merge(pLocal, remote, localID, peerlist)
+					newInactiveFlag, newConfirmedFlag := merge(pLocal, remote, localID, peerlist)
 
 					// Make flag stay true if set to true once
 					confirmedOrdersChangedFlag = confirmedOrdersChangedFlag || newInactiveFlag || newConfirmedFlag
@@ -217,4 +193,3 @@ func ConsensusModule(
 		}
 	}
 }
-

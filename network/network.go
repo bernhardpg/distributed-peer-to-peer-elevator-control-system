@@ -1,34 +1,33 @@
 package network
 
 import (
-	"time"
-	"fmt"
-	"strconv"
+	"../consensus"
 	"../datatypes"
+	"../fsm"
+	"../nodestates"
 	"./driver/bcast"
 	"./driver/peers"
-	"../fsm"
-	"../nodeStatesHandler"
-	"../consensusModule/hallConsensus"
+	"fmt"
+	"strconv"
+	"time"
 )
-
 
 const sendRate = 20 * time.Millisecond
 
 type Channels struct {
-	LocalNodeStateChan chan fsm.NodeState
-	RemoteNodeStatesChan chan nodeStatesHandler.NodeStateMsg
-	LocalHallOrdersChan chan [][] datatypes.Req
+	LocalNodeStateChan   chan fsm.NodeState
+	RemoteNodeStatesChan chan nodestates.NodeStateMsg
+	LocalHallOrdersChan  chan [][]datatypes.Req
 }
 
 func Module(
 	localID datatypes.NodeID,
 	LocalNodeStateChan <-chan fsm.NodeState,
-	RemoteNodeStatesChan chan<- nodeStatesHandler.NodeStateMsg,
+	RemoteNodeStatesChan chan<- nodestates.NodeStateMsg,
 	NodeLostChan chan<- datatypes.NodeID,
 	LocalHallOrdersChan <-chan datatypes.HallOrdersMatrix,
 	RemoteHallOrdersChan chan<- datatypes.HallOrdersMatrix,
-	PeerlistUpdateHallChan chan<- [] datatypes.NodeID) {
+	PeerlistUpdateHallChan chan<- []datatypes.NodeID) {
 
 	// Configure Peer List
 	// -----
@@ -37,17 +36,17 @@ func Module(
 	go peers.Transmitter(15519, strconv.Itoa(int(localID)), peerTxEnable)
 	go peers.Receiver(15519, peerUpdateChan)
 
-	// Setup channels and modules for sending and receiving nodeStatesHandler.NodeStateMsg
+	// Setup channels and modules for sending and receiving nodestates.NodeStateMsg
 	// -----
-	localStateTx := make(chan nodeStatesHandler.NodeStateMsg)
-	remoteStateRx := make(chan nodeStatesHandler.NodeStateMsg, 10) // Does the buffer need to be this high?
+	localStateTx := make(chan nodestates.NodeStateMsg)
+	remoteStateRx := make(chan nodestates.NodeStateMsg, 10) // Does the buffer need to be this high?
 	go bcast.Transmitter(15510, localStateTx)
 	go bcast.Receiver(15510, remoteStateRx)
 
 	// Setup channels and modules for sending and receiving localHallOrder matrices
 	// -----
-	localHallOrdersTx := make(chan hallConsensus.LocalHallOrdersMsg)
-	remoteHallOrdersRx := make(chan hallConsensus.LocalHallOrdersMsg)
+	localHallOrdersTx := make(chan consensus.LocalHallOrdersMsg)
+	remoteHallOrdersRx := make(chan consensus.LocalHallOrdersMsg)
 	go bcast.Transmitter(15511, localHallOrdersTx)
 	go bcast.Receiver(15511, remoteHallOrdersRx)
 
@@ -56,9 +55,9 @@ func Module(
 	bcastPeriod := 200 * time.Millisecond // TODO change this
 	bcastTimer := time.NewTimer(bcastPeriod)
 
-	localState := fsm.NodeState {}
+	localState := fsm.NodeState{}
 	var localHallOrders datatypes.HallOrdersMatrix
-	
+
 	// Handle network traffic
 	// -----
 
@@ -75,24 +74,23 @@ func Module(
 			// Inform NodeStatesHandler and consensusModules that one ore more nodes are lost from the network
 			if len(a.Lost) != 0 {
 				for _, currIDstr := range a.Lost {
-					currID,_ := strconv.Atoi(currIDstr)
+					currID, _ := strconv.Atoi(currIDstr)
 					NodeLostChan <- (datatypes.NodeID)(currID)
 				}
 			}
 
 			// Notify consensus modules of changes
 			if len(a.Lost) != 0 || len(a.New) != 0 {
-				var peerlist [] datatypes.NodeID
+				var peerlist []datatypes.NodeID
 
 				for _, currIDstr := range a.Peers {
-					currID,_ := strconv.Atoi(currIDstr)
+					currID, _ := strconv.Atoi(currIDstr)
 					peerlist = append(peerlist, (datatypes.NodeID)(currID))
 				}
 
 				PeerlistUpdateHallChan <- peerlist
 				// TODO cabOrders here
 			}
-			
 
 		// Transmit local state
 		case a := <-LocalNodeStateChan:
@@ -101,27 +99,27 @@ func Module(
 		// TODO create channel for NodeLostChan for consensus module
 
 		// Receive remote node states
-		case a := <- remoteStateRx:
-			// Send all (including local) remoteNodeStates to nodeStatesHandler
+		case a := <-remoteStateRx:
+			// Send all (including local) remoteNodeStates to nodestates
 			// TODO fix comment: Needs localState as well in case we drop out of network and lose ourself
 			RemoteNodeStatesChan <- a
 
-		case a := <- LocalHallOrdersChan:
+		case a := <-LocalHallOrdersChan:
 			localHallOrders = a
 
-		case a := <- remoteHallOrdersRx:
+		case a := <-remoteHallOrdersRx:
 			RemoteHallOrdersChan <- a.HallOrders
 
 		case <-bcastTimer.C:
 			bcastTimer.Reset(bcastPeriod)
 
-			localStateTx <- nodeStatesHandler.NodeStateMsg {
-				ID: localID,
+			localStateTx <- nodestates.NodeStateMsg{
+				ID:    localID,
 				State: localState,
 			}
 
-			localHallOrdersTx <- hallConsensus.LocalHallOrdersMsg {
-				ID: localID, // This is actually never used, but is included for consistency on network
+			localHallOrdersTx <- consensus.LocalHallOrdersMsg{
+				ID:         localID, // This is actually never used, but is included for consistency on network
 				HallOrders: localHallOrders,
 			}
 		}
