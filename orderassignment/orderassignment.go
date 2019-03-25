@@ -77,6 +77,7 @@ func encodeJSON(
 		States:       currStates,
 	}
 
+
 	currOptimizationInputJSON, _ := json.Marshal(currOptimizationInput)
 
 	return currOptimizationInputJSON
@@ -93,7 +94,7 @@ func runOptimizer(currOptimizationInputJSON []byte) []byte {
 		log.Fatal(err)
 	}
 
-	scriptName := "/optimalOrderAssigner/hall_request_assigner"
+	scriptName := "/orderassignment/hall_request_assigner"
 	params := "--includeCab --clearRequestType all"
 	input := " --input '" + string(currOptimizationInputJSON) + "'"
 
