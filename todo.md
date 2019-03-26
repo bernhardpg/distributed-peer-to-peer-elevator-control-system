@@ -1,26 +1,16 @@
-### TODOS
+### DONE
 - Change all chans into <- in parameters
-- What to do with semicolon?
-- Make Golint happy
 - Everything crashes when starting elevator outside boundaries
 - Comment all code
-- Change peerlist to set?
-- Better names for LocalNodeStateChan ?
 - Change all variable declarations from 'var' to i.e. 'localState := fsm.NodeState {}'
-- Rename neworder channels in hallConsensus and cabcons
 	- Change both chans to elevio.ButtonEvent?
+- Rename neworder channels in hallConsensus and cabcons
 - Blinking lights??
 - Fix bug where everything crashes with no peers?
-
-Tirsdag:
-- Clean up light channels
-- Check out orderassignment and initializing of variables
 - Packet loss
 - Fix elev dir calc
-- Implement jitter??
-
-
-### DONE
+- Check out orderassignment and initializing of variables
+- Make Golint happy
 - IMPORTANT: Handle physical obstruction (timout in fsm, signal to network that node is to be regarded as offline) (Or, stop broadcasting for 20 secs, then reboot).
 - Deep copy?? Fixed in nodestates!!
 - Rewrite fsm: BUGFIX: calculateNextOrder will loop forever if currOrder is removed by optimalOrderassigner (or what?)
