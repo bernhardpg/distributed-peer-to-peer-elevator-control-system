@@ -68,7 +68,7 @@ func Module(
 	bcastPeriod := 50 * time.Millisecond // TODO change this
 	bcastTimer := time.NewTimer(bcastPeriod)
 
-	localState := fsm.NodeState{}
+	localNodeState := fsm.NodeState{}
 	var localHallOrders datatypes.HallOrdersMatrix
 	var localCabOrders datatypes.CabOrdersMap
 
@@ -83,12 +83,6 @@ func Module(
 		select {
 
 		case a := <-peerUpdateChan:
-			// Print info
-			fmt.Printf("Peer update:\n")
-			fmt.Printf("  Peers:    %q\n", a.Peers)
-			fmt.Printf("  New:      %q\n", a.New)
-			fmt.Printf("  Lost:     %q\n", a.Lost)
-
 			// Inform NodeStatesHandler and consensusModules that one ore more nodes are lost from the network
 			for _, currID := range a.Lost {
 				NodeLostChan <- (datatypes.NodeID)(currID)
@@ -102,16 +96,14 @@ func Module(
 			}
 
 			// Make sure that the current node is always in peerlist
+			// (will get removed from a.Peers when there is no network connection)
 			if !consensus.ContainsID(peerlist, localID){
 				peerlist = append(peerlist, localID)
 			}
-			fmt.Printf("(network) peerlist: %v\n", peerlist)
 
 			PeerlistUpdateHallChan <- peerlist
 			PeerlistUpdateCabChan <- peerlist
 			PeerlistUpdateAssignerChan <- peerlist
-
-
 
 
 		// Let FSM toggle network visibility (due to obstructions)
@@ -120,50 +112,68 @@ func Module(
 
 		// Transmit local state
 		case a := <-LocalNodeStateChan:
-			localState = a
+			localNodeState = a
 
 		// Receive remote node states
 		case a := <-remoteStateRx:
-			// Send all (including local) remoteNodeStates to nodestates
-			// TODO fix comment: Needs localState as well in case we drop out of network and lose ourself
+			// Send all remoteNodeStates to nodestates, including the one with the localID
 			RemoteNodeStatesChan <- a
 
 		case a := <-LocalHallOrdersChan:
 			localHallOrders = a
 
 		case a := <-remoteHallOrdersRx:
+			// Send all remoteOrders to consensus module, including the one with the localID
+			// (Orders can only be confirmed by comparing local and remote cab orders information) 
 			RemoteHallOrdersChan <- a.HallOrders
 
 		case a := <-LocalCabOrdersChan:
 			localCabOrders = a
 
 		case a := <-remoteCabOrdersRx:
+			// Send all remoteOrders to consensus module, including the one with the localID
+			// (Orders can only be confirmed by comparing local and remote cab orders information) 
 			RemoteCabOrdersChan <- a.CabOrders
 
+		// Broadcast periodically
 		case <-bcastTimer.C:
 			bcastTimer.Reset(bcastPeriod)
 
-			// Send cabOrders directly as remote if alone in peerlist.
-			// (Orders can only be confirmed by comparing local and remote cab orders information) 
-			if consensus.ContainsID(peerlist, localID) && len(peerlist) == 1 {
-				RemoteCabOrdersChan <- localCabOrders
-				break
-			}
-
-			localStateTx <- nodestates.NodeStateMsg {
+			// Initialize messages to send on network
+			// ------
+			localNodeStateMsg := nodestates.NodeStateMsg {
 				ID:    localID,
-				State: localState,
+				State: localNodeState,
 			}
 
-			localHallOrdersTx <- consensus.LocalHallOrdersMsg {
-				ID:         localID, // This is actually never used, but is included for consistency on network
+			localCabOrdersMsg := consensus.LocalCabOrdersMsg {
+				// This ID is actually never used, but is included for consistency on network
+				ID:         localID,
+				CabOrders:  localCabOrders,
+			}
+
+			localHallOrdersMsg := consensus.LocalHallOrdersMsg {
+				// This ID is actually never used, but is included for consistency on network
+				ID:         localID,
 				HallOrders: localHallOrders,
 			}
 
-			localCabOrdersTx <- consensus.LocalCabOrdersMsg {
-				ID:         localID, // This is actually never used, but is included for consistency on network
-				CabOrders:  localCabOrders,
+			// Send localCabOrders and localNodeState directly to remote channels if the node is
+			// alone in peerlist.
+			// (Orders can only be confirmed by comparing local and remote cab orders information,
+			// and nodeStates are only updated when received remotely)
+			if consensus.ContainsID(peerlist, localID) && len(peerlist) == 1 {
+				RemoteCabOrdersChan <- localCabOrders
+				RemoteNodeStatesChan <- localNodeStateMsg
+				// (Hall orders is not sent because they won't be accepted when there are no other nodes on the network)
+				break
 			}
+
+			// Broadcast information if there are other nodes on the network
+			// --------
+			localStateTx <- localNodeStateMsg
+			localHallOrdersTx <- localHallOrdersMsg
+			localCabOrdersTx <- localCabOrdersMsg
 
 		}
 	}
