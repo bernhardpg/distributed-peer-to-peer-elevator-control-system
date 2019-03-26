@@ -8,6 +8,7 @@ import (
 	"./driver/bcast"
 	"./driver/peers"
 	"time"
+	"fmt"
 )
 
 
@@ -68,6 +69,8 @@ func Module(
 	var localHallOrders datatypes.HallOrdersMatrix
 	var localCabOrders datatypes.CabOrdersMap
 
+	fmt.Println("(network) Initialized")
+
 	// Handle network traffic
 	// -----
 
@@ -75,11 +78,11 @@ func Module(
 		select {
 
 		case a := <-peerUpdateChan:
-			/*// Print info
+			// Print info
 			fmt.Printf("Peer update:\n")
 			fmt.Printf("  Peers:    %q\n", a.Peers)
 			fmt.Printf("  New:      %q\n", a.New)
-			fmt.Printf("  Lost:     %q\n", a.Lost)*/
+			fmt.Printf("  Lost:     %q\n", a.Lost)
 
 			// Inform NodeStatesHandler and consensusModules that one ore more nodes are lost from the network
 			if len(a.Lost) != 0 {

@@ -150,10 +150,14 @@ func StateMachine(
 	// Initialize variables	
 	// -----
 	doorOpenTime := 3 * time.Second
+	timeoutTime := 4 * time.Second
+
 	currFloor := -1
 	requestedFloor := -1
 	currDir := Up
 	doorTimer := time.NewTimer(0)
+	// Start obstruction timer on init
+	obstructionTimer := time.NewTimer(timeoutTime) 
 
 	var assignedOrders datatypes.AssignedOrdersMatrix
 
@@ -173,9 +177,16 @@ func StateMachine(
 	for {
 		select {
 		
+		// Possible obstruction, the elevator should have hit a floor by now
+		case <- obstructionTimer.C:
+			if behaviour != MovingState && behaviour != InitState {
+				break
+			}
+
+			fmt.Println("(fsm) Possible obstruction!")
+
 		// Time to close doors
 		case <- doorTimer.C:
-
 			if behaviour == InitState {
 				break
 			}
@@ -187,7 +198,7 @@ func StateMachine(
 
 			} else {
 
-				//There are orders in the system, but but none ahead. Turn around!
+				// There are orders in the system, but but none ahead. Turn around!
 				if !ordersAhead(assignedOrders, currFloor, currDir) {
 					if currDir == Up {
 						currDir = Down
@@ -196,13 +207,14 @@ func StateMachine(
 					}
 				}
 
-
 				initiateMovement(currDir)
 				behaviour = MovingState
+				// Start obstruction timer every time we start moving
+				obstructionTimer.Reset(timeoutTime)
 
 			}
 
-			//State has changed, inform network module
+			// State has changed, inform network module
 			transmitState(behaviour, currFloor, currDir, LocalNodeStateChan)
 
 
@@ -213,6 +225,7 @@ func StateMachine(
 
 		case a := <- ArrivedAtFloorChan:
 			currFloor = a
+			obstructionTimer.Reset(timeoutTime)
 
 			switch behaviour {
 
@@ -236,7 +249,6 @@ func StateMachine(
 						// Tell hallConsensus to wipe all orders at floor
 						CompletedHallOrderChan <- currFloor
 						CompletedCabOrderChan <- currFloor
-						
 					}
 			}
 			// Changes to floor and state have been made, inform network module
@@ -279,6 +291,8 @@ func StateMachine(
 				currDir = calculateDirection(currFloor, requestedFloor)
 				initiateMovement(currDir)
 				behaviour = MovingState
+				// Start obstruction timer every time we start moving
+				obstructionTimer.Reset(timeoutTime)
 			}
 
 			// Changes to state have been made, inform network module

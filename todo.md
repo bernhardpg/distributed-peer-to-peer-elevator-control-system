@@ -12,7 +12,6 @@
 - Blinking lights??
 
 Tirsdag:
-- Deep copy?? Fixed in nodestates!!
 - Clean up light channels
 - Check out orderassignment and initializing of variables
 - Packet loss
@@ -21,6 +20,7 @@ Tirsdag:
 
 
 ### DONE
+- Deep copy?? Fixed in nodestates!!
 - Rewrite fsm: BUGFIX: calculateNextOrder will loop forever if currOrder is removed by optimalOrderassigner (or what?)
 - Change NodeID to string?
 - Deep copy?? Fixed with datatypes
