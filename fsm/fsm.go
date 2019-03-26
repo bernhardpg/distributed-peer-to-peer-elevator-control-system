@@ -47,16 +47,15 @@ func hasOrders(assignedOrders datatypes.AssignedOrdersMatrix) bool {
 }
 
 
-func findFirstOrder(assignedOrders datatypes.AssignedOrdersMatrix) int {
-	for floor := 0; floor < len(assignedOrders); floor++ {
-		for orderType := elevio.BT_HallUp; orderType <= elevio.BT_Cab; orderType++ {
-			if assignedOrders[floor][orderType] {
-				return floor
-			}
+func hasOrderAtFloor(assignedOrders datatypes.AssignedOrdersMatrix, floor int) bool {
+	for orderType := elevio.BT_HallUp; orderType <= elevio.BT_Cab; orderType++ {
+		if assignedOrders[floor][orderType] {
+			return true
 		}
 	}
-	return -1
+	return false
 }
+
 
 func transmitState(
 	currState NodeBehaviour,
@@ -99,12 +98,16 @@ func ordersAhead(assignedOrders datatypes.AssignedOrdersMatrix, currFloor int, c
 }
 
 
-func calculateDirection(currFloor int, requestedFloor int) OrderDir {
-	if currFloor < requestedFloor {
+func calculateDirection(assignedOrders datatypes.AssignedOrdersMatrix, currFloor int, currDir OrderDir) OrderDir {
+	if !ordersAhead(assignedOrders, currFloor, currDir) {
+		if currDir == Up {
+			return Down
+		} 
 		return Up
-	}
-		return Down
-	}
+	}	
+	return currDir
+}
+	
 
 func shouldStopAtFloor(currFloor int, numFloors int, currDir OrderDir, assignedOrders datatypes.AssignedOrdersMatrix) bool {
 
@@ -214,14 +217,8 @@ func StateMachine(
 
 			} else {
 
-				// There are orders in the system, but but none ahead. Turn around!
-				if !ordersAhead(assignedOrders, currFloor, currDir) {
-					if currDir == Up {
-						currDir = Down
-					} else {
-						currDir = Up
-					}
-				}
+				// There are orders in the system, change dir if they aren't ahead of us
+				currDir = calculateDirection(assignedOrders, currFloor, currDir)
 
 				initiateMovement(currDir)
 				behaviour = MovingState
@@ -281,16 +278,11 @@ func StateMachine(
 	
 		switch behaviour {
 
+
 		case IdleState:
 
-			// A new order is present, findFirstOrder returns its floor  
-			requestedFloor = findFirstOrder(assignedOrders)
-
-			switch requestedFloor {
-
 			// We're summoned to where we are. Open doors!
-			case currFloor:
-				
+			if hasOrderAtFloor(assignedOrders, currFloor){
 				openDoors()
 				doorTimer.Reset(doorOpenTime)
 
@@ -299,26 +291,25 @@ func StateMachine(
 				CompletedCabOrderChan <- currFloor
 				behaviour = DoorOpenState
 
-			// Some other floor than our own is requested.
-			default:
+			} else {
+				// There are orders present, but not at our floor. Change dir if they're not ahead of us.
+				currDir = calculateDirection(assignedOrders, currFloor, currDir)
 
-				currDir = calculateDirection(currFloor, requestedFloor)
 				initiateMovement(currDir)
+
 				behaviour = MovingState
 				// Start obstruction timer every time we start moving
 				obstructionTimer.Reset(timeoutTime)
 			}
-
+	
 			// Changes to state have been made, inform network module
 			transmitState(behaviour, currFloor, currDir, LocalNodeStateChan)
 
 		
 		case DoorOpenState:
 
-			requestedFloor = findFirstOrder(assignedOrders)
-
 			// Refresh door timer if summoned to where at with doors open
-			if requestedFloor == currFloor {
+			if hasOrderAtFloor(assignedOrders, currFloor) {
 				doorTimer.Reset(doorOpenTime)
 
 				// Tell hallConsensus to wipe all orders at floor
