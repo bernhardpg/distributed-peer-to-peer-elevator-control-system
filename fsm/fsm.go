@@ -194,7 +194,7 @@ func StateMachine(
 			fmt.Println("(fsm) Possible obstruction!")
 
 			behaviour = InitState
-			initiateMovement(currDir)
+			//initiateMovement(currDir)
 			obstructionTimer.Reset(timeoutTime)
 
 			// Don't show on network when obstructed

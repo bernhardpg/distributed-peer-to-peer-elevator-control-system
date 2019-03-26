@@ -94,8 +94,6 @@ func encodeJSON(
 
 	currOptimizationInputJSON, _ := json.Marshal(currOptimizationInput)
 
-	//fmt.Println("(optass): OptimizationInput: ", string(currOptimizationInputJSON))
-
 	return currOptimizationInputJSON
 }
 
@@ -165,6 +163,7 @@ func OptimalAssigner(
 
 		case a := <-PeerlistUpdateChan:
 			peerlist = a
+			optimize = true
 
 		// Optimize each time allNodeStates are updated
 		case a := <-AllNodeStatesChan:
