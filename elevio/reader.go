@@ -5,7 +5,7 @@ import (
 )
 
 // IOReader ...
-// Main routine for reading io values and passing them on to corresponding channels
+// Main routine for reading io values and passing them on to the corresponding channels
 func IOReader(
 	NewHallOrderChan chan<- ButtonEvent,
 	NewCabOrderChan chan<- int,

@@ -25,7 +25,8 @@ type LocalHallOrdersMsg struct {
 }
 
 // updateConfirmedHallOrders ...
-// Constructs a boolean matrix where only confirmed hall orders are set to true
+// Updated the boolean matrix of confirmed hall orders,
+// where only confirmed hall orders are set to true
 func updateConfirmedHallOrders(
 	localHallOrders datatypes.HallOrdersMatrix,
 	confirmedHallOrders *datatypes.ConfirmedHallOrdersMatrix) {
@@ -61,12 +62,14 @@ func HallOrdersModule(
 	// ----
 	peerlist := []datatypes.NodeID{}
 
-	// All orders will be initialized to Unknown (zero-state)
+	// All orders will be initialized to Unknown
+	// (due to Golang's zero-state initialization)
 	var localHallOrders datatypes.HallOrdersMatrix
 	var confirmedHallOrders datatypes.ConfirmedHallOrdersMatrix
 
 	// Send initialized variables to other modules
 	// ------
+
 	// Send initialized matrix to network module
 	LocalOrdersChan <- localHallOrders
 
@@ -75,9 +78,9 @@ func HallOrdersModule(
 	// Send initialized matrix to optimalAssigner
 	ConfirmedOrdersChan <- confirmedHallOrders
 
-	fmt.Println("(consensus) HallOrdersModule Initialized")
+	fmt.Println("(consensus:hallorders) Initialized")
 
-	// Handle consensus logic when new data enters system
+	// Logic for handling consensus when new data enters system
 	// ------
 	for {
 
@@ -87,8 +90,9 @@ func HallOrdersModule(
 		case a := <-NewOrderChan:
 
 			// Don't accept new hall orders when alone on network
-			// (Otherwise inactive orders might override confirmed orders when reconnecting to network)
-			if len(peerlist) <= 1 {
+			// (Otherwise inactive orders might override confirmed orders
+			// when reconnecting to network)
+			if ContainsID(peerlist, localID) && len(peerlist) == 1 {
 				break
 			}
 
@@ -106,8 +110,8 @@ func HallOrdersModule(
 
 			}
 
-		// Mark completed orders as inactive and update network module and optimalAssigner
-		// with all confirmedHallOrders
+		// Clear lights, mark completed orders as inactive and update network module
+		// and optimalAssigner with all confirmedHallOrders when orders are completed
 		case a := <-CompletedOrderChan:
 
 			clearHallLights(a, TurnOffHallLightChan)
@@ -115,7 +119,8 @@ func HallOrdersModule(
 			// Set both dir Up and dir Down to inactive
 			inactiveReq := datatypes.Req{
 				State: datatypes.Inactive,
-				AckBy: nil, // Delete ackBy list when transitioning to inactive
+				// Delete ackBy list when transitioning to inactive
+				AckBy: nil,
 			}
 			localHallOrders[a] = [2]datatypes.Req{
 				inactiveReq,
@@ -177,10 +182,9 @@ func HallOrdersModule(
 				}
 			}
 
-			// Only update confirmedHallOrders when orders are changed to inactive or confirmed
+			// Only update confirmedHallOrders when orders are changed to Inactive or Confirmed
 			if confirmedOrdersChangedFlag {
-				updateConfirmedHallOrders(localHallOrders, &confirmedHallOrders) // TODO change one by one inside loop?
-
+				updateConfirmedHallOrders(localHallOrders, &confirmedHallOrders)
 				ConfirmedOrdersChan <- confirmedHallOrders
 			}
 

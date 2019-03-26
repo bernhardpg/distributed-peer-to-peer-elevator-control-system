@@ -7,6 +7,14 @@ import (
 	"time"
 )
 
+/*
+
+	Disclaimer:
+	This driver has mostly been copied from the project description,
+	and is not written by authors of this system.
+
+*/
+
 // NumFloors ...
 // Used as a global const in the entire project.
 // Will be used to initialize size of matrices for the different types defined in 'datatypes.go'

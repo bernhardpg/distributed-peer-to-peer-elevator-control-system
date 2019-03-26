@@ -7,17 +7,26 @@ import (
 	"../nodestates"
 	"./driver/bcast"
 	"./driver/peers"
-	"time"
 	"fmt"
+	"time"
 )
 
-
+// Channels ...
+// Channels used for communication between the network module and
+// other modules.
 type Channels struct {
 	LocalNodeStateChan   chan fsm.NodeState
 	RemoteNodeStatesChan chan nodestates.NodeStateMsg
 	LocalHallOrdersChan  chan [][]datatypes.Req
 }
 
+// Module ...
+// The network module handles all the communication with the other nodes
+// on the network.
+// Information being transmitted and received from network
+// are passed through TX and RX channels, respectively.
+// (This module utilizes an UDP network driver, which mostly has been copied
+// from the project description.)
 func Module(
 	localID datatypes.NodeID,
 	FsmToggleNetworkVisibilityChan <-chan bool,
@@ -35,7 +44,7 @@ func Module(
 
 	// Configure Peer List
 	// -----
-	peerUpdateChan := make(chan peers.PeerUpdate,10)
+	peerUpdateChan := make(chan peers.PeerUpdate, 1)
 	peerTxEnable := make(chan bool) // Used to signal that the node is unavailable
 	go peers.Transmitter(15519, string(localID), peerTxEnable)
 	go peers.Receiver(15519, peerUpdateChan)
@@ -43,7 +52,7 @@ func Module(
 	// Setup channels and modules for sending and receiving nodestates.NodeStateMsg
 	// -----
 	localStateTx := make(chan nodestates.NodeStateMsg)
-	remoteStateRx := make(chan nodestates.NodeStateMsg, 10) // Does the buffer need to be this high?
+	remoteStateRx := make(chan nodestates.NodeStateMsg, 10)
 	go bcast.Transmitter(15510, localStateTx)
 	go bcast.Receiver(15510, remoteStateRx)
 
@@ -65,7 +74,7 @@ func Module(
 	// -----
 	peerlist := []datatypes.NodeID{localID}
 
-	bcastPeriod := 50 * time.Millisecond // TODO change this
+	bcastPeriod := 50 * time.Millisecond
 	bcastTimer := time.NewTimer(bcastPeriod)
 
 	localNodeState := fsm.NodeState{}
@@ -74,14 +83,13 @@ func Module(
 
 	fmt.Println("(network) Initialized")
 
-	fmt.Printf("(network) peerlist: %v\n", peerlist)
-	
 	// Handle network traffic
 	// -----
 
 	for {
 		select {
 
+		// Received any changes related to the connected Peers from the UDP driver
 		case a := <-peerUpdateChan:
 			// Inform NodeStatesHandler and consensusModules that one ore more nodes are lost from the network
 			for _, currID := range a.Lost {
@@ -89,15 +97,15 @@ func Module(
 				LostPeerCabChan <- (datatypes.NodeID)(currID)
 			}
 
-			// Empty peerlist and add all new peers as NodeIDs
+			// Replace the previous peerlist with the updated one from the UDP network driver
 			peerlist = []datatypes.NodeID{}
 			for _, currID := range a.Peers {
 				peerlist = append(peerlist, (datatypes.NodeID)(currID))
 			}
 
 			// Make sure that the current node is always in peerlist
-			// (will get removed from a.Peers when there is no network connection)
-			if !consensus.ContainsID(peerlist, localID){
+			// (will get removed from a.Peers by the driver when there is no network connection)
+			if !consensus.ContainsID(peerlist, localID) {
 				peerlist = append(peerlist, localID)
 			}
 
@@ -105,9 +113,8 @@ func Module(
 			PeerlistUpdateCabChan <- peerlist
 			PeerlistUpdateAssignerChan <- peerlist
 
-
 		// Let FSM toggle network visibility (due to obstructions)
-		case a := <- FsmToggleNetworkVisibilityChan:
+		case a := <-FsmToggleNetworkVisibilityChan:
 			peerTxEnable <- a
 
 		// Transmit local state
@@ -119,20 +126,22 @@ func Module(
 			// Send all remoteNodeStates to nodestates, including the one with the localID
 			RemoteNodeStatesChan <- a
 
+		// Update the network module copy of localHallOrders
 		case a := <-LocalHallOrdersChan:
 			localHallOrders = a
 
+		// Send all remoteOrders to consensus module, including the one with the localID
+		// (Orders can only be confirmed by comparing local and remote cab orders information)
 		case a := <-remoteHallOrdersRx:
-			// Send all remoteOrders to consensus module, including the one with the localID
-			// (Orders can only be confirmed by comparing local and remote cab orders information) 
 			RemoteHallOrdersChan <- a.HallOrders
 
+		// Update the network module copy of localCabOrders
 		case a := <-LocalCabOrdersChan:
 			localCabOrders = a
 
+		// Send all remoteOrders to consensus module, including the one with the localID
+		// (Orders can only be confirmed by comparing local and remote cab orders information)
 		case a := <-remoteCabOrdersRx:
-			// Send all remoteOrders to consensus module, including the one with the localID
-			// (Orders can only be confirmed by comparing local and remote cab orders information) 
 			RemoteCabOrdersChan <- a.CabOrders
 
 		// Broadcast periodically
@@ -141,18 +150,16 @@ func Module(
 
 			// Initialize messages to send on network
 			// ------
-			localNodeStateMsg := nodestates.NodeStateMsg {
+			localNodeStateMsg := nodestates.NodeStateMsg{
 				ID:    localID,
 				State: localNodeState,
 			}
-
-			localCabOrdersMsg := consensus.LocalCabOrdersMsg {
+			localCabOrdersMsg := consensus.LocalCabOrdersMsg{
 				// This ID is actually never used, but is included for consistency on network
-				ID:         localID,
-				CabOrders:  localCabOrders,
+				ID:        localID,
+				CabOrders: localCabOrders,
 			}
-
-			localHallOrdersMsg := consensus.LocalHallOrdersMsg {
+			localHallOrdersMsg := consensus.LocalHallOrdersMsg{
 				// This ID is actually never used, but is included for consistency on network
 				ID:         localID,
 				HallOrders: localHallOrders,

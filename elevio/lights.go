@@ -21,6 +21,7 @@ func LightHandler(
 	TurnOffCabLight <-chan ButtonEvent,
 	TurnOnCabLight <-chan ButtonEvent,
 	FloorIndicator <-chan int) {
+
 	// Turn off all lights at init
 	for floor := 0; floor < numFloors; floor++ {
 		for orderType := BT_HallUp; orderType <= BT_Cab; orderType++ {

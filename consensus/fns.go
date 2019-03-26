@@ -7,11 +7,6 @@ import (
 // merge ...
 // Forms the basis for all the consensus logic.
 // Merges the wordview of a single local order request with a single remote order request.
-// Possible order states:
-//		Unknown - Nothing can be said with certainty about the order, will get overriden by all other states
-//		Inactive - The order is completed and hence to be regarded as inactive
-//		PendingAck - The order is pending acknowledgement from the other nodes on the network before it can be handled by a node
-//		Confirmed - The order is confirmed by all nodes on the network and is ready to be served by a node
 // @return newConfirmedFlag: the order was set to Confirmed
 // @return newInactiveFlag: the order was set to Inactive
 func merge(
@@ -26,7 +21,7 @@ func merge(
 	// Set the new state of the local order based on the remote order
 	switch (*pLocal).State {
 
-	// Set the local order from Inactive to Pending and add the localID  if the remote order is Pending. 
+	// Set the local order from Inactive to Pending and add the localID if the remote order is Pending.
 	case datatypes.Inactive:
 		if remote.State == datatypes.PendingAck {
 			*pLocal = datatypes.Req{
@@ -104,7 +99,7 @@ func UniqueIDSlice(IDSlice []datatypes.NodeID) []datatypes.NodeID {
 	return list
 }
 
-// ContaintsID ...
+// ContainsID ...
 // @return: Whether or not the NodeID list passed as the first argument contains the NodeID passed as the second param
 func ContainsID(s []datatypes.NodeID, e datatypes.NodeID) bool {
 	for _, a := range s {

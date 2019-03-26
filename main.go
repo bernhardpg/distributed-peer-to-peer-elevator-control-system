@@ -57,13 +57,12 @@ func main() {
 		TurnOnCabLightChan:   make(chan elevio.ButtonEvent),
 	}
 	fsmChns := fsm.Channels{
-		ArrivedAtFloorChan: make(chan int),
+		ArrivedAtFloorChan:          make(chan int),
 		ToggleNetworkVisibilityChan: make(chan bool),
 	}
 	orderassignmentChns := orderassignment.Channels{
-		// Needs a buffer size bigger than one because the orderassignment might send on this channel multiple times before FSM manages to receive!
 		LocallyAssignedOrdersChan: make(chan datatypes.AssignedOrdersMatrix, 2),
-		PeerlistUpdateChan: make(chan []datatypes.NodeID),
+		PeerlistUpdateChan:        make(chan []datatypes.NodeID),
 	}
 	nodestatesChns := nodestates.Channels{
 		LocalNodeStateChan: make(chan fsm.NodeState, 2),
@@ -89,10 +88,10 @@ func main() {
 		LocalOrdersChan:     make(chan datatypes.CabOrdersMap, 2),
 		RemoteOrdersChan:    make(chan datatypes.CabOrdersMap, 10),
 		PeerlistUpdateChan:  make(chan []datatypes.NodeID),
-		LostPeerChan: 		 make(chan datatypes.NodeID),
+		LostPeerChan:        make(chan datatypes.NodeID),
 	}
-
-	// TODO Double check channel buffering!
+	// Note: Buffer are added to some of the channels to avoid issues with circular communication
+	// and with many nodes transmitting on the network simultaneously.
 
 	// Start modules
 	// -----
@@ -174,7 +173,7 @@ func main() {
 		cabConsensusChns.PeerlistUpdateChan,
 		cabConsensusChns.LostPeerChan)
 
-	fmt.Println("(main) Started all modules")
+	fmt.Println("(main) Started all goroutines.")
 
 	for {
 		select {}

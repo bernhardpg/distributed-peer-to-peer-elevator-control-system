@@ -2,21 +2,21 @@ package orderassignment
 
 import (
 	"../datatypes"
-	"../fsm"
 	"../elevio"
+	"../fsm"
 	"encoding/json"
+	"fmt"
 	"log"
 	"os"
 	"os/exec"
 	"reflect"
-	"fmt"
 )
 
 // Channels ...
 // Used for communication between this module and other modules
 type Channels struct {
 	LocallyAssignedOrdersChan chan datatypes.AssignedOrdersMatrix
-	PeerlistUpdateChan chan []datatypes.NodeID
+	PeerlistUpdateChan        chan []datatypes.NodeID
 }
 
 type singleNodeStateJSON struct {
@@ -39,18 +39,15 @@ func encodeJSON(
 	currAllNodeStates map[datatypes.NodeID]fsm.NodeState,
 	peerlist []datatypes.NodeID) []byte {
 
-	// TODO change currAllCabOrders to allCabOrders
-
 	currStates := make(map[string]singleNodeStateJSON)
 
 	for _, currID := range peerlist {
 		currBehaviour := ""
 		currDirection := ""
 
-		// TODO cleanup comment
-		// Initialize cabOrders to false if not yet defined (will converge towards truth anyway)
-
-		// TODO why does not currAllNodeStates need to be initialized??
+		// Initialize cabOrders to false if not yet defined
+		// (The order distribution will quickly converge towards
+		// the correct distribution, so this is not a problem)
 		currNodeState := currAllNodeStates[currID]
 		currCabOrders := currAllCabOrders[currID]
 		if currCabOrders == nil {
@@ -91,14 +88,15 @@ func encodeJSON(
 		States:       currStates,
 	}
 
-
 	currOptimizationInputJSON, _ := json.Marshal(currOptimizationInput)
 
 	return currOptimizationInputJSON
 }
 
+// runOptimizer ...
 // Runs the optimization script with the given JSON data
-// @return: JSON object with optimal distribution of orders between nodes
+// @return: JSON object with optimal distribution of orders between
+// all nodes in the system.
 func runOptimizer(currOptimizationInputJSON []byte) []byte {
 
 	// Get current working directory
@@ -152,7 +150,7 @@ func OptimalAssigner(
 	var currOptimizationInputJSON []byte
 	var optimalAssignedOrders map[string]datatypes.AssignedOrdersMatrix
 
-	fmt.Println("(Optass) Initialized")
+	fmt.Println("(optimalassigner) Initialized")
 
 	// Order Assigner
 	// (Handler for assigning all confirmed orders when new data enters the system)
@@ -168,7 +166,6 @@ func OptimalAssigner(
 		// Optimize each time allNodeStates are updated
 		case a := <-AllNodeStatesChan:
 
-			// TODO fix datatypes
 			// Don't react if no changes
 			if reflect.DeepEqual(a, currAllNodeStates) {
 				break
@@ -203,17 +200,21 @@ func OptimalAssigner(
 		default:
 		}
 
-		// Calculate optimal AssignedLocalOrders when new data has arrived and states have been initialized
+		// Calculate optimal assigned order for the local node when
+		// new data has arrived and the states have been initialized
 		if optimize && len(currAllNodeStates) != 0 {
 			optimize = false
 
-			// Calculate new optimalAssignedOrders time a message is received
-			currOptimizationInputJSON = encodeJSON(currHallOrders, currAllCabOrders, currAllNodeStates, peerlist)
+			// Encode information as JSON, pass it to the optimizer script,
+			// and finally extract the optimal orders for the current node
+
+			currOptimizationInputJSON = encodeJSON(currHallOrders,
+				currAllCabOrders, currAllNodeStates, peerlist)
 			outJSON := runOptimizer(currOptimizationInputJSON)
 			json.Unmarshal(outJSON, &optimalAssignedOrders)
-
 			currLocallyAssignedOrders := optimalAssignedOrders[string(localID)]
 
+			// Update the FSM with the new assigned orders
 			LocallyAssignedOrdersChan <- currLocallyAssignedOrders
 		}
 	}

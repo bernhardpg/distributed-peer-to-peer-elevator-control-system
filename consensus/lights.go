@@ -1,14 +1,8 @@
 package consensus
 
-// ----------
-// Setting the elevator lights
-// ----------
-
 import (
 	"../elevio"
 )
-
-// TODO generalize light functions
 
 func setHallLight(currFloor int, orderType int, TurnOnHallLightChan chan<- elevio.ButtonEvent) {
 	buttonDir := (elevio.ButtonType)(orderType)

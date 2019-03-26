@@ -20,14 +20,16 @@ type Channels struct {
 	NodeLostChan       chan datatypes.NodeID
 }
 
+// deepcopyNodeStates ...
+// @return: A pointer to a deep copied map of allNodeStates
 func deepcopyNodeStates(m map[datatypes.NodeID]fsm.NodeState) map[datatypes.NodeID]fsm.NodeState {
 	cpy := make(map[datatypes.NodeID]fsm.NodeState)
 
 	for currID := range m {
-		temp := fsm.NodeState {
+		temp := fsm.NodeState{
 			Behaviour: m[currID].Behaviour,
-			Floor: m[currID].Floor,
-			Dir: m[currID].Dir,
+			Floor:     m[currID].Floor,
+			Dir:       m[currID].Dir,
 		}
 		cpy[currID] = temp
 	}
@@ -36,15 +38,16 @@ func deepcopyNodeStates(m map[datatypes.NodeID]fsm.NodeState) map[datatypes.Node
 }
 
 // Handler ...
-// Keeps an updated state on all nodes currently on the network (in peerlist).
+// The nodestates handler keeps an updated state on all nodes currently in the system
+// (that is, nodes that are in peerlist).
 // Lost nodes will be deleted from the collection of states, and new nodes will
 // be added to the collection of states immediately.
 func Handler(
 	localID datatypes.NodeID,
-	LocalNodeStateFsmChan <-chan fsm.NodeState,
-	AllNodeStatesChan chan<- map[datatypes.NodeID]fsm.NodeState,
+	FsmLocalNodeStateChan <-chan fsm.NodeState,
+	NetworkAllNodeStatesChan chan<- map[datatypes.NodeID]fsm.NodeState,
 	NodeLost <-chan datatypes.NodeID,
-	BroadcastLocalNodeStateChan chan<- fsm.NodeState,
+	NetworkLocalNodeStateChan chan<- fsm.NodeState,
 	RemoteNodeStatesChan <-chan NodeStateMsg) {
 
 	var allNodeStates = make(map[datatypes.NodeID]fsm.NodeState)
@@ -52,14 +55,15 @@ func Handler(
 	for {
 		select {
 
-		// Received localState from FSM
-		case a := <-LocalNodeStateFsmChan:
-			BroadcastLocalNodeStateChan <- a
+		// Send received localState from FSM to the network module
+		case a := <-FsmLocalNodeStateChan:
+			NetworkLocalNodeStateChan <- a
 
-		// Received remoteNodeState
+		// Update allNodeStates with the received node state, and
+		// update the network module
 		case a := <-RemoteNodeStatesChan:
 			allNodeStates[a.ID] = a.State
-			AllNodeStatesChan <- deepcopyNodeStates(allNodeStates)
+			NetworkAllNodeStatesChan <- deepcopyNodeStates(allNodeStates)
 
 		// Remove lost nodes from allNodeStates
 		case a := <-NodeLost:
