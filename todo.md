@@ -16,7 +16,7 @@ Tirsdag:
 - Check out orderassignment and initializing of variables
 - Packet loss
 - IMPORTANT: Handle physical obstruction (timout in fsm, signal to network that node is to be regarded as offline) (Or, stop broadcasting for 20 secs, then reboot).
-- ++
+- Fix elev dir calc
 
 
 ### DONE

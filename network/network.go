@@ -20,6 +20,7 @@ type Channels struct {
 
 func Module(
 	localID datatypes.NodeID,
+	FsmToggleNetworkVisibilityChan <-chan bool,
 	LocalNodeStateChan <-chan fsm.NodeState,
 	RemoteNodeStatesChan chan<- nodestates.NodeStateMsg,
 	NodeLostChan chan<- datatypes.NodeID,
@@ -104,6 +105,10 @@ func Module(
 				PeerlistUpdateCabChan <- peerlist
 				PeerlistUpdateAssignerChan <- peerlist
 			}
+
+		// Let FSM toggle network visibility (due to obstructions)
+		case a := <- FsmToggleNetworkVisibilityChan:
+			peerTxEnable <- a
 
 		// Transmit local state
 		case a := <-LocalNodeStateChan:

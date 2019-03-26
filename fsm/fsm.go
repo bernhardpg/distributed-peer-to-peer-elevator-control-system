@@ -10,7 +10,8 @@ import (
 // Channels ...
 // Channels used for communication betweem the Elevator FSM and other modules
 type Channels struct {
-	ArrivedAtFloorChan chan int 
+	ArrivedAtFloorChan chan int
+	ToggleNetworkVisibilityChan chan bool
 }
 
 type NodeBehaviour int;
@@ -84,6 +85,7 @@ func ordersAhead(assignedOrders datatypes.AssignedOrdersMatrix, currFloor int, c
 		} 
 
 	} else {
+
 		for floor := currFloor - 1; floor >= 0; floor-- {
 			for orderType := elevio.BT_HallUp; orderType <= elevio.BT_Cab; orderType++ {
 				if assignedOrders[floor][orderType] {
@@ -92,6 +94,7 @@ func ordersAhead(assignedOrders datatypes.AssignedOrdersMatrix, currFloor int, c
 			}
 		}
 	}
+
 	return false
 }
 
@@ -142,6 +145,7 @@ func closeDoors(){
 func StateMachine(
 	numFloors int,
 	ArrivedAtFloorChan <-chan int,
+	ToggleNetworkVisibilityChan chan<- bool,
 	LocallyAssignedOrdersChan <-chan datatypes.AssignedOrdersMatrix,
 	CompletedHallOrderChan chan<- int,
 	CompletedCabOrderChan chan<- int,
@@ -158,6 +162,10 @@ func StateMachine(
 	doorTimer := time.NewTimer(0)
 	// Start obstruction timer on init
 	obstructionTimer := time.NewTimer(timeoutTime) 
+
+	// Go offline until initialized
+	ToggleNetworkVisibilityChan <- false
+
 
 	var assignedOrders datatypes.AssignedOrdersMatrix
 
@@ -184,6 +192,14 @@ func StateMachine(
 			}
 
 			fmt.Println("(fsm) Possible obstruction!")
+
+			behaviour = InitState
+			initiateMovement(currDir)
+			obstructionTimer.Reset(timeoutTime)
+
+			// Don't show on network when obstructed
+			ToggleNetworkVisibilityChan <- false
+
 
 		// Time to close doors
 		case <- doorTimer.C:
@@ -233,7 +249,8 @@ func StateMachine(
 				case InitState:
 					stopMovement()
 					behaviour = IdleState
-					
+					// Go online when initialized
+					ToggleNetworkVisibilityChan <- true
 
 				case MovingState:
 
@@ -257,14 +274,11 @@ func StateMachine(
 			
 		}
 
-
 		// No active orders? Wait till orders come
 		if !hasOrders(assignedOrders){
 			continue
 		}
-
-		
-
+	
 		switch behaviour {
 
 		case IdleState:

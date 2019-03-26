@@ -58,6 +58,7 @@ func main() {
 	}
 	fsmChns := fsm.Channels{
 		ArrivedAtFloorChan: make(chan int),
+		ToggleNetworkVisibilityChan: make(chan bool),
 	}
 	orderassignmentChns := orderassignment.Channels{
 		// Needs a buffer size bigger than one because the orderassignment might send on this channel multiple times before FSM manages to receive!
@@ -112,6 +113,7 @@ func main() {
 	go fsm.StateMachine(
 		numFloors,
 		fsmChns.ArrivedAtFloorChan,
+		fsmChns.ToggleNetworkVisibilityChan,
 		orderassignmentChns.LocallyAssignedOrdersChan,
 		hallConsensusChns.CompletedOrderChan,
 		cabConsensusChns.CompletedOrderChan,
@@ -136,6 +138,7 @@ func main() {
 
 	go network.Module(
 		localID,
+		fsmChns.ToggleNetworkVisibilityChan,
 		networkChns.LocalNodeStateChan,
 		networkChns.RemoteNodeStatesChan,
 		nodestatesChns.NodeLostChan,
