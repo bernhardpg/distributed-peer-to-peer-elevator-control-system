@@ -2,7 +2,8 @@
 	TTK4145 Realtime Programming – Elevator Project 2019
 	Developed by Sander Endresen, Arild Madshaven and Bernhard Paus Græsdal
 
-	This project follows the Golint code style standards as currently used and developed by Google.
+	This project follows the Golint code style standards as currently
+	used and developed by Google.
 */
 
 package main
@@ -66,7 +67,7 @@ func main() {
 	}
 	nodestatesChns := nodestates.Channels{
 		LocalNodeStateChan: make(chan datatypes.NodeState, 2),
-		AllNodeStatesChan:  make(chan map[datatypes.NodeID]datatypes.NodeState, 10),
+		AllNodeStatesChan:  make(chan datatypes.AllNodeStatesMap, 10),
 		NodeLostChan:       make(chan datatypes.NodeID),
 	}
 	networkChns := network.Channels{

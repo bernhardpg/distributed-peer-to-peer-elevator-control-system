@@ -15,14 +15,14 @@ type NodeStateMsg struct {
 // Used for communication between this module and other modules
 type Channels struct {
 	LocalNodeStateChan chan datatypes.NodeState
-	AllNodeStatesChan  chan map[datatypes.NodeID]datatypes.NodeState
+	AllNodeStatesChan  chan datatypes.AllNodeStatesMap
 	NodeLostChan       chan datatypes.NodeID
 }
 
 // deepcopyNodeStates ...
 // @return: A pointer to a deep copied map of allNodeStates
-func deepcopyNodeStates(m map[datatypes.NodeID]datatypes.NodeState) map[datatypes.NodeID]datatypes.NodeState {
-	cpy := make(map[datatypes.NodeID]datatypes.NodeState)
+func deepcopyNodeStates(m datatypes.AllNodeStatesMap) datatypes.AllNodeStatesMap {
+	cpy := make(datatypes.AllNodeStatesMap)
 
 	for currID := range m {
 		temp := datatypes.NodeState{
@@ -44,12 +44,12 @@ func deepcopyNodeStates(m map[datatypes.NodeID]datatypes.NodeState) map[datatype
 func Handler(
 	localID datatypes.NodeID,
 	FsmLocalNodeStateChan <-chan datatypes.NodeState,
-	NetworkAllNodeStatesChan chan<- map[datatypes.NodeID]datatypes.NodeState,
+	NetworkAllNodeStatesChan chan<- datatypes.AllNodeStatesMap,
 	NodeLost <-chan datatypes.NodeID,
 	NetworkLocalNodeStateChan chan<- datatypes.NodeState,
 	RemoteNodeStatesChan <-chan NodeStateMsg) {
 
-	var allNodeStates = make(map[datatypes.NodeID]datatypes.NodeState)
+	var allNodeStates = make(datatypes.AllNodeStatesMap)
 
 	for {
 		select {

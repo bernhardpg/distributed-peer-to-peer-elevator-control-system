@@ -55,6 +55,11 @@ type NodeState struct {
 	Dir       NodeDir
 }
 
+// AllNodeStatesMap ...
+// Data structure used to contain the node states of all the
+// nodes currently in the peerlist
+type AllNodeStatesMap map[NodeID]NodeState
+
 // -------------
 // Order Datatypes
 // -------------

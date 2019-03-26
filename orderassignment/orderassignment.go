@@ -35,7 +35,7 @@ type optimizationInputJSON struct {
 func encodeJSON(
 	currHallOrders datatypes.ConfirmedHallOrdersMatrix,
 	currAllCabOrders datatypes.ConfirmedCabOrdersMap,
-	currAllNodeStates map[datatypes.NodeID]datatypes.NodeState,
+	currAllNodeStates datatypes.AllNodeStatesMap,
 	peerlist []datatypes.NodeID) []byte {
 
 	currStates := make(map[string]singleNodeStateJSON)
@@ -135,7 +135,7 @@ func OptimalAssigner(
 	LocallyAssignedOrdersChan chan<- datatypes.AssignedOrdersMatrix,
 	ConfirmedHallOrdersChan <-chan datatypes.ConfirmedHallOrdersMatrix,
 	ConfirmedCabOrdersChan <-chan datatypes.ConfirmedCabOrdersMap,
-	AllNodeStatesChan <-chan map[datatypes.NodeID]datatypes.NodeState) {
+	AllNodeStatesChan <-chan datatypes.AllNodeStatesMap) {
 
 	// Initialize variables
 	//-------
