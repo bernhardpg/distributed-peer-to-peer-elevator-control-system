@@ -163,6 +163,10 @@ func OptimalAssigner(
 
 		case a := <-PeerlistUpdateChan:
 			peerlist = a
+			if len(peerlist) == 0 {
+				optimize = false
+				break
+			}
 			optimize = true
 
 		// Optimize each time allNodeStates are updated
