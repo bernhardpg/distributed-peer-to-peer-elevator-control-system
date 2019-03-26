@@ -94,6 +94,8 @@ func encodeJSON(
 
 	currOptimizationInputJSON, _ := json.Marshal(currOptimizationInput)
 
+	//fmt.Println("(optass): OptimizationInput: ", string(currOptimizationInputJSON))
+
 	return currOptimizationInputJSON
 }
 
@@ -152,6 +154,8 @@ func OptimalAssigner(
 	var currOptimizationInputJSON []byte
 	var optimalAssignedOrders map[string]datatypes.AssignedOrdersMatrix
 
+	fmt.Println("(Optass) Initialized")
+
 	// Order Assigner
 	// (Handler for assigning all confirmed orders when new data enters the system)
 	// --------
@@ -166,10 +170,10 @@ func OptimalAssigner(
 		case a := <-AllNodeStatesChan:
 
 			// TODO fix datatypes
-			/*// Don't react if no changes
+			// Don't react if no changes
 			if reflect.DeepEqual(a, currAllNodeStates) {
 				break
-			}*/
+			}
 
 			currAllNodeStates = a
 			optimize = true
@@ -191,17 +195,13 @@ func OptimalAssigner(
 		case a := <-ConfirmedCabOrdersChan:
 			// Avoid double calculation when hit desired floor
 			if reflect.DeepEqual(a, currAllCabOrders) {
-				fmt.Println("Equal orders, breaking!")
 				break
 			}
-
-			fmt.Println("not equal, Optimizing!") //TODO replace datatypes here??
 
 			currAllCabOrders = a
 			optimize = true
 
 		default:
-			// TODO is this necessary?
 		}
 
 		// Calculate optimal AssignedLocalOrders when new data has arrived and states have been initialized

@@ -20,6 +20,21 @@ type Channels struct {
 	NodeLostChan       chan datatypes.NodeID
 }
 
+func deepcopyNodeStates(m map[datatypes.NodeID]fsm.NodeState) map[datatypes.NodeID]fsm.NodeState {
+	cpy := make(map[datatypes.NodeID]fsm.NodeState)
+
+	for currID := range m {
+		temp := fsm.NodeState {
+			Behaviour: m[currID].Behaviour,
+			Floor: m[currID].Floor,
+			Dir: m[currID].Dir,
+		}
+		cpy[currID] = temp
+	}
+
+	return cpy
+}
+
 // Handler ...
 // Keeps an updated state on all nodes currently on the network (in peerlist).
 // Lost nodes will be deleted from the collection of states, and new nodes will
@@ -39,24 +54,16 @@ func Handler(
 
 		// Received localState from FSM
 		case a := <-LocalNodeStateFsmChan:
-			//allNodeStates[localID] = a // TODO remove this? Will already be broadcastet from network
 			BroadcastLocalNodeStateChan <- a
-
-			//AllNodeStatesChan <- allNodeStates // TODO remove this?
 
 		// Received remoteNodeState
 		case a := <-RemoteNodeStatesChan:
-			//			fmt.Println("(nodeStatesHandler) Updating node: ", a.ID, " in allNodeStates")
 			allNodeStates[a.ID] = a.State
-			AllNodeStatesChan <- allNodeStates
-
-			//			fmt.Println(allNodeStates)
+			AllNodeStatesChan <- deepcopyNodeStates(allNodeStates)
 
 		// Remove lost nodes from allNodeStates
 		case a := <-NodeLost:
 			delete(allNodeStates, a)
-			//			fmt.Println("(nodeStatesHandler) Removing node: ", a, " from network")
-			//			fmt.Println(allNodeStates)
 		}
 
 	}

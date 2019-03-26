@@ -45,7 +45,9 @@ func Transmitter(port int, chans ...interface{}) {
 func Receiver(port int, chans ...interface{}) {
 	checkArgs(chans...)
 
-	var buf [1024]byte
+	// Buffer size needs to be increased for many nodes and more floors.
+	// (Or else it overflows, causing the whole node network to freeze)
+	var buf [1024*2]byte
 	conn := conn.DialBroadcastUDP(port)
 	for {
 		n, _, _ := conn.ReadFrom(buf[0:])

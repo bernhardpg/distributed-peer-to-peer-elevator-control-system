@@ -4,6 +4,7 @@ import (
 	"../datatypes"
 	"../elevio"
 	"fmt"
+	//"github.com/jinzhu/copier"
 )
 
 // LocalCabOrdersMsg ...
@@ -46,10 +47,24 @@ func calcConfirmedOrders(localCabOrders datatypes.CabOrdersMap) datatypes.Confir
 func deepcopyCabOrders(m datatypes.CabOrdersMap) datatypes.CabOrdersMap {
 	cpy := make(datatypes.CabOrdersMap)
 
-	for currID := range m {
-		temp := make(datatypes.CabOrdersList, len(m[currID]))
-		copy(temp, m[currID])
-		cpy[currID] = temp
+	for currID, currCabOrderList := range m {
+		tempCabOrdersList := make(datatypes.CabOrdersList, len(currCabOrderList))
+		
+		for currReqIndex, currReq := range currCabOrderList {
+			
+			currAckBy := currReq.AckBy
+			tempAckBy := make([]datatypes.NodeID, len(currAckBy))
+			copy(tempAckBy, currAckBy)
+
+			tempReq := datatypes.Req{
+				State: currReq.State,
+				AckBy: currReq.AckBy,
+			}
+
+			tempCabOrdersList[currReqIndex] = tempReq
+		}
+
+		cpy[currID] = tempCabOrdersList
 	}
 
 	return cpy
@@ -106,8 +121,6 @@ func CabOrdersModule(
 
 	ConfirmedOrdersChan <- deepcopyConfirmedCabOrders(confirmedCabOrders)
 	LocalOrdersChan <- deepcopyCabOrders(localCabOrders)
-
-	// TODO send initialized variables to other modules??
 
 	fmt.Println("(consensus) CabOrdersModule initialized")
 
@@ -167,7 +180,7 @@ func CabOrdersModule(
 		// Merge received remoteCabOrders from network module with local data in localCabOrders
 		case a := <-RemoteOrdersChan:
 
-			remoteCabOrders := a
+			remoteCabOrders := deepcopyCabOrders(a) // TODO copy on send?
 			confirmedOrdersChangedFlag := false
 
 			// Merge world views for every order on every node in CabOrder map
@@ -187,6 +200,7 @@ func CabOrdersModule(
 					remote := remoteCabOrders[remoteID][floor]
 
 					newInactiveFlag, newConfirmedFlag := merge(pLocal, remote, localID, peerlist)
+					
 					// Make flag stay true if set to true once
 					confirmedOrdersChangedFlag = confirmedOrdersChangedFlag || newInactiveFlag || newConfirmedFlag
 

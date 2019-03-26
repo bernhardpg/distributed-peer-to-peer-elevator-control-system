@@ -10,7 +10,6 @@ import (
 	"time"
 )
 
-const sendRate = 20 * time.Millisecond
 
 type Channels struct {
 	LocalNodeStateChan   chan fsm.NodeState
@@ -34,7 +33,7 @@ func Module(
 
 	// Configure Peer List
 	// -----
-	peerUpdateChan := make(chan peers.PeerUpdate)
+	peerUpdateChan := make(chan peers.PeerUpdate,10)
 	peerTxEnable := make(chan bool) // Used to signal that the node is unavailable
 	go peers.Transmitter(15519, string(localID), peerTxEnable)
 	go peers.Receiver(15519, peerUpdateChan)
@@ -49,20 +48,20 @@ func Module(
 	// Setup channels and modules for sending and receiving localHallOrder matrices
 	// -----
 	localHallOrdersTx := make(chan consensus.LocalHallOrdersMsg)
-	remoteHallOrdersRx := make(chan consensus.LocalHallOrdersMsg)
+	remoteHallOrdersRx := make(chan consensus.LocalHallOrdersMsg, 10)
 	go bcast.Transmitter(15511, localHallOrdersTx)
 	go bcast.Receiver(15511, remoteHallOrdersRx)
 
 	// Setup channels and modules for sending and receiving localCabOrder maps
 	// -----
 	localCabOrdersTx := make(chan consensus.LocalCabOrdersMsg)
-	remoteCabOrdersRx := make(chan consensus.LocalCabOrdersMsg)
+	remoteCabOrdersRx := make(chan consensus.LocalCabOrdersMsg, 10)
 	go bcast.Transmitter(15512, localCabOrdersTx)
 	go bcast.Receiver(15512, remoteCabOrdersRx)
 
 	// Initialize variables
 	// -----
-	bcastPeriod := 50 * time.Millisecond // TODO change this
+	bcastPeriod := 200 * time.Millisecond // TODO change this
 	bcastTimer := time.NewTimer(bcastPeriod)
 
 	localState := fsm.NodeState{}
@@ -140,9 +139,8 @@ func Module(
 
 			localCabOrdersTx <- consensus.LocalCabOrdersMsg {
 				ID:         localID, // This is actually never used, but is included for consistency on network
-				CabOrders: localCabOrders,
+				CabOrders:  localCabOrders,
 			}
 		}
-
 	}
 }

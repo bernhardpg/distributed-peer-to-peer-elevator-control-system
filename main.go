@@ -65,8 +65,8 @@ func main() {
 		PeerlistUpdateChan: make(chan []datatypes.NodeID),
 	}
 	nodestatesChns := nodestates.Channels{
-		LocalNodeStateChan: make(chan fsm.NodeState),
-		AllNodeStatesChan:  make(chan map[datatypes.NodeID]fsm.NodeState, 2),
+		LocalNodeStateChan: make(chan fsm.NodeState, 2),
+		AllNodeStatesChan:  make(chan map[datatypes.NodeID]fsm.NodeState, 10),
 		NodeLostChan:       make(chan datatypes.NodeID),
 	}
 	networkChns := network.Channels{
@@ -76,17 +76,17 @@ func main() {
 	hallConsensusChns := consensus.HallOrderChannels{
 		CompletedOrderChan:  make(chan int),
 		NewOrderChan:        make(chan elevio.ButtonEvent),
-		ConfirmedOrdersChan: make(chan datatypes.ConfirmedHallOrdersMatrix),
+		ConfirmedOrdersChan: make(chan datatypes.ConfirmedHallOrdersMatrix, 2),
 		LocalOrdersChan:     make(chan datatypes.HallOrdersMatrix, 2),
-		RemoteOrdersChan:    make(chan datatypes.HallOrdersMatrix,10),
+		RemoteOrdersChan:    make(chan datatypes.HallOrdersMatrix, 10),
 		PeerlistUpdateChan:  make(chan []datatypes.NodeID),
 	}
 	cabConsensusChns := consensus.CabOrderChannels{
 		CompletedOrderChan:  make(chan int),
 		NewOrderChan:        make(chan int),
-		ConfirmedOrdersChan: make(chan datatypes.ConfirmedCabOrdersMap),
+		ConfirmedOrdersChan: make(chan datatypes.ConfirmedCabOrdersMap, 2),
 		LocalOrdersChan:     make(chan datatypes.CabOrdersMap, 2),
-		RemoteOrdersChan:    make(chan datatypes.CabOrdersMap,10),
+		RemoteOrdersChan:    make(chan datatypes.CabOrdersMap, 10),
 		PeerlistUpdateChan:  make(chan []datatypes.NodeID),
 		LostPeerChan: 		 make(chan datatypes.NodeID),
 	}

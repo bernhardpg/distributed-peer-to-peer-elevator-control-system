@@ -76,7 +76,6 @@ func ordersAhead(assignedOrders datatypes.AssignedOrdersMatrix, currFloor int, c
 	if currDir == Up {
 
 		for floor := currFloor + 1; floor < len(assignedOrders); floor++ {
-			fmt.Printf("(fsm) ordersAhead: iterating through floor %v from currFloor %v.\n", floor, currFloor)
 			for orderType := elevio.BT_HallUp; orderType <= elevio.BT_Cab; orderType++ {
 				if assignedOrders[floor][orderType] {
 					return true
@@ -166,6 +165,7 @@ func StateMachine(
 	// Close doors and move elevator to first floor in direction Up 
 	closeDoors()
 	initiateMovement(currDir)
+	fmt.Println("(fsm) Initialized")
 	
 	
 	// State selector
