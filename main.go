@@ -1,6 +1,5 @@
 /*
 	TTK4145 Realtime Programming – Elevator Project 2019
-	Developed by Sander Endresen, Arild Madshaven and Bernhard Paus Græsdal
 
 	This project follows the Golint code style standards as currently
 	used and developed by Google.
