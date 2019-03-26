@@ -164,8 +164,7 @@ func OptimalAssigner(
 		case a := <-PeerlistUpdateChan:
 			peerlist = a
 			if len(peerlist) == 0 {
-				optimize = false
-				break
+				peerlist = []datatypes.NodeID{localID}
 			}
 			optimize = true
 
