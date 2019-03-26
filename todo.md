@@ -10,6 +10,7 @@
 - Rename neworder channels in hallConsensus and cabcons
 	- Change both chans to elevio.ButtonEvent?
 - Blinking lights??
+- Fix bug where everything crashes with no peers?
 
 Tirsdag:
 - Clean up light channels

@@ -160,7 +160,6 @@ func StateMachine(
 	timeoutTime := 4 * time.Second
 
 	currFloor := -1
-	requestedFloor := -1
 	currDir := Up
 	doorTimer := time.NewTimer(0)
 	// Start obstruction timer on init
