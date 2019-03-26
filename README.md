@@ -1,6 +1,6 @@
 # TTK3145 Elevator Project Spring 2019
 
-This project aims to set up a network of n cooperative elevators on a network, running on m floors. By default, it runs with four floors and three nodes.
+This project aims to set up a network of `n` cooperative elevators on a network, running on `m` floors. By default, it runs with four floors and three nodes.
 
 ### Network structure and information distribution
 The nodes communicate on a peer-to-peer basis, without any master-slave configuration. Each node periodically broadcasts its own state information and all its information on all the orders currently in the system. Each node individually calculates which orders it should handle based on the information it receives from the other nodes on the network. A robust consensus logic is needed for this approach to work, ensuring that all the nodes arrives at the same conclusions at all times.
