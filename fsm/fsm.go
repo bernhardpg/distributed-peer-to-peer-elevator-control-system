@@ -14,49 +14,6 @@ type Channels struct {
 	ToggleNetworkVisibilityChan chan bool
 }
 
-// NodeBehaviour ...
-// Contains the current behaviour of the node.
-type NodeBehaviour int
-
-// Possible node behaviours
-const (
-	// InitState ...
-	// Used for initializing
-	// (Either after a restart or after being physically obstructed)
-	InitState NodeBehaviour = iota
-
-	// IdleState ...
-	// Node is standing still without orders.
-	IdleState
-
-	// DoorOpenState ...
-	// Node is standing in a floor with the doors open.
-	DoorOpenState
-
-	// MovingState ...
-	// Node is moving.
-	MovingState
-)
-
-// OrderDir ...
-// Which direction the node is currently moving.
-// (Will also decide which direction the node will look for
-// new orders first).
-type OrderDir int
-
-const (
-	Up OrderDir = iota
-	Down
-)
-
-// NodeState ...
-// Contains all the state information of a node
-type NodeState struct {
-	Behaviour NodeBehaviour
-	Floor     int
-	Dir       OrderDir
-}
-
 // hasOrders ...
 // @return: true if the node has any orders, false otherwise
 func hasOrders(assignedOrders datatypes.AssignedOrdersMatrix) bool {
@@ -86,12 +43,12 @@ func hasOrderAtFloor(
 // transmitState ...
 // Transmits the current local node state to the nodestates handler
 func transmitState(
-	currState NodeBehaviour,
+	currState datatypes.NodeBehaviour,
 	currFloor int,
-	currDir OrderDir,
-	LocalNodeStateChan chan<- NodeState) {
+	currDir datatypes.NodeDir,
+	LocalNodeStateChan chan<- datatypes.NodeState) {
 
-	currNodeState := NodeState{
+	currNodeState := datatypes.NodeState{
 		Behaviour: currState,
 		Floor:     currFloor,
 		Dir:       currDir,
@@ -104,9 +61,9 @@ func transmitState(
 func ordersAhead(
 	assignedOrders datatypes.AssignedOrdersMatrix,
 	currFloor int,
-	currDir OrderDir) bool {
+	currDir datatypes.NodeDir) bool {
 
-	if currDir == Up {
+	if currDir == datatypes.Up {
 
 		for floor := currFloor + 1; floor < len(assignedOrders); floor++ {
 			for orderType := elevio.BT_HallUp; orderType <= elevio.BT_Cab; orderType++ {
@@ -131,18 +88,18 @@ func ordersAhead(
 }
 
 // calculateDirection ...
-// @return: Up or Down depending on whether there are orders below or above
+// @return: datatypes.Up or datatypes.Down depending on whether there are orders below or above
 // the current floor, considering which direction the node is currently
 // searching for orders
 func calculateDirection(
 	assignedOrders datatypes.AssignedOrdersMatrix,
-	currFloor int, currDir OrderDir) OrderDir {
+	currFloor int, currDir datatypes.NodeDir) datatypes.NodeDir {
 
 	if !ordersAhead(assignedOrders, currFloor, currDir) {
-		if currDir == Up {
-			return Down
+		if currDir == datatypes.Up {
+			return datatypes.Down
 		}
-		return Up
+		return datatypes.Up
 	}
 	return currDir
 }
@@ -154,14 +111,14 @@ func calculateDirection(
 func shouldStopAtFloor(
 	currFloor int,
 	numFloors int,
-	currDir OrderDir,
+	currDir datatypes.NodeDir,
 	assignedOrders datatypes.AssignedOrdersMatrix) bool {
 
 	for orderType := elevio.BT_HallUp; orderType <= elevio.BT_Cab; orderType++ {
 
-		if orderType == elevio.BT_HallUp && currDir == Down {
+		if orderType == elevio.BT_HallUp && currDir == datatypes.Down {
 			continue
-		} else if orderType == elevio.BT_HallDown && currDir == Up {
+		} else if orderType == elevio.BT_HallDown && currDir == datatypes.Up {
 			continue
 		}
 		if assignedOrders[currFloor][orderType] {
@@ -174,8 +131,8 @@ func shouldStopAtFloor(
 
 // Wrapper functions for controlling the elevator hardware
 // -----
-func initiateMovement(currDir OrderDir) {
-	if currDir == Up {
+func initiateMovement(currDir datatypes.NodeDir) {
+	if currDir == datatypes.Up {
 		elevio.SetMotorDirection(elevio.MD_Up)
 	} else {
 		elevio.SetMotorDirection(elevio.MD_Down)
@@ -200,7 +157,7 @@ func StateMachine(
 	LocallyAssignedOrdersChan <-chan datatypes.AssignedOrdersMatrix,
 	CompletedHallOrderChan chan<- int,
 	CompletedCabOrderChan chan<- int,
-	LocalNodeStateChan chan<- NodeState) {
+	LocalNodeStateChan chan<- datatypes.NodeState) {
 
 	// Initialize variables
 	// -----
@@ -208,7 +165,7 @@ func StateMachine(
 	timeoutTime := 4 * time.Second
 
 	currFloor := -1
-	currDir := Up
+	currDir := datatypes.Up
 
 	doorTimer := time.NewTimer(0)
 
@@ -221,9 +178,9 @@ func StateMachine(
 	var assignedOrders datatypes.AssignedOrdersMatrix
 
 	// Initialize elevator
-	// (Close doors and move to first floor in Up direction)
+	// (Close doors and move to first floor in datatypes.Up direction)
 	// -----
-	behaviour := InitState
+	behaviour := datatypes.InitState
 	closeDoors()
 	initiateMovement(currDir)
 
@@ -236,11 +193,11 @@ func StateMachine(
 
 		// Possible obstruction, the elevator should have hit a floor by now
 		case <-obstructionTimer.C:
-			if behaviour != MovingState && behaviour != InitState {
+			if behaviour != datatypes.MovingState && behaviour != datatypes.InitState {
 				break
 			}
 
-			behaviour = InitState
+			behaviour = datatypes.InitState
 			initiateMovement(currDir)
 			obstructionTimer.Reset(timeoutTime)
 
@@ -251,23 +208,23 @@ func StateMachine(
 
 		// Time to close doors and transition to another state
 		case <-doorTimer.C:
-			if behaviour == InitState {
+			if behaviour == datatypes.InitState {
 				break
 			}
 
 			closeDoors()
 
-			// Move to IdleState if there are no orders,
-			// change to MovingState if there are.
+			// Move to datatypes.IdleState if there are no orders,
+			// change to datatypes.MovingState if there are.
 			if !hasOrders(assignedOrders) {
-				behaviour = IdleState
+				behaviour = datatypes.IdleState
 			} else {
 				currDir = calculateDirection(assignedOrders, currFloor, currDir)
 				initiateMovement(currDir)
-				behaviour = MovingState
+				behaviour = datatypes.MovingState
 
 				// Start obstruction timer every time the node
-				// transitions to MovingState
+				// transitions to datatypes.MovingState
 				obstructionTimer.Reset(timeoutTime)
 
 			}
@@ -290,19 +247,19 @@ func StateMachine(
 			switch behaviour {
 
 			// Stop at first defined floor and go online when initialized
-			case InitState:
+			case datatypes.InitState:
 				stopMovement()
-				behaviour = IdleState
+				behaviour = datatypes.IdleState
 				ToggleNetworkVisibilityChan <- true
 
-			// Transition from MovingState to DoorOpenState if the node
+			// Transition from datatypes.MovingState to datatypes.DoorOpenState if the node
 			// should stop at this floor
-			case MovingState:
+			case datatypes.MovingState:
 				if shouldStopAtFloor(currFloor, numFloors, currDir, assignedOrders) {
 					stopMovement()
 					openDoors()
 					doorTimer.Reset(doorOpenTime)
-					behaviour = DoorOpenState
+					behaviour = datatypes.DoorOpenState
 
 					// Tell hallConsensus to wipe all orders at floor
 					CompletedHallOrderChan <- currFloor
@@ -323,7 +280,7 @@ func StateMachine(
 		}
 
 		switch behaviour {
-		case IdleState:
+		case datatypes.IdleState:
 
 			// The node is summoned to where it is, open doors!
 			if hasOrderAtFloor(assignedOrders, currFloor) {
@@ -333,7 +290,7 @@ func StateMachine(
 				// Tell hallConsensus to wipe all orders at floor
 				CompletedHallOrderChan <- currFloor
 				CompletedCabOrderChan <- currFloor
-				behaviour = DoorOpenState
+				behaviour = datatypes.DoorOpenState
 
 			} else {
 				// There are orders present, but not at the current floor.
@@ -342,7 +299,7 @@ func StateMachine(
 
 				initiateMovement(currDir)
 
-				behaviour = MovingState
+				behaviour = datatypes.MovingState
 				// Start obstruction timer everytime the node starts moving
 				obstructionTimer.Reset(timeoutTime)
 			}
@@ -350,7 +307,7 @@ func StateMachine(
 			// The node state has changed, inform the network module
 			transmitState(behaviour, currFloor, currDir, LocalNodeStateChan)
 
-		case DoorOpenState:
+		case datatypes.DoorOpenState:
 
 			// Refresh door timer if summoned to the current floor, and
 			// doors are already open

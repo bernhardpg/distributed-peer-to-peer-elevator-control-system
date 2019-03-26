@@ -4,9 +4,60 @@ import (
 	"../elevio"
 )
 
+// -------------
+// Node Datatypes
+// -------------
+
 // NodeID ...
 // Used to hold the ID of an elevator node all over the program
 type NodeID string
+
+// NodeBehaviour ...
+// Contains the current behaviour of a node.
+type NodeBehaviour int
+
+// Possible node behaviours
+const (
+	// InitState ...
+	// Used for initializing
+	// (Either after a restart or after being physically obstructed)
+	InitState NodeBehaviour = iota
+
+	// IdleState ...
+	// Node is standing still without orders.
+	IdleState
+
+	// DoorOpenState ...
+	// Node is standing in a floor with the doors open.
+	DoorOpenState
+
+	// MovingState ...
+	// Node is moving.
+	MovingState
+)
+
+// NodeDir ...
+// Which direction the node is currently moving.
+// (Will also decide which direction the node will look for
+// new orders first).
+type NodeDir int
+
+const (
+	Up NodeDir = iota
+	Down
+)
+
+// NodeState ...
+// Contains all the state information of a node
+type NodeState struct {
+	Behaviour NodeBehaviour
+	Floor     int
+	Dir       NodeDir
+}
+
+// -------------
+// Order Datatypes
+// -------------
 
 // Req ...
 // Holds the level of consensus of a single order request on the network

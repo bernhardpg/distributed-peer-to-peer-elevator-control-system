@@ -65,12 +65,12 @@ func main() {
 		PeerlistUpdateChan:        make(chan []datatypes.NodeID),
 	}
 	nodestatesChns := nodestates.Channels{
-		LocalNodeStateChan: make(chan fsm.NodeState, 2),
-		AllNodeStatesChan:  make(chan map[datatypes.NodeID]fsm.NodeState, 10),
+		LocalNodeStateChan: make(chan datatypes.NodeState, 2),
+		AllNodeStatesChan:  make(chan map[datatypes.NodeID]datatypes.NodeState, 10),
 		NodeLostChan:       make(chan datatypes.NodeID),
 	}
 	networkChns := network.Channels{
-		LocalNodeStateChan:   make(chan fsm.NodeState),
+		LocalNodeStateChan:   make(chan datatypes.NodeState),
 		RemoteNodeStatesChan: make(chan nodestates.NodeStateMsg, 2),
 	}
 	hallConsensusChns := consensus.HallOrderChannels{

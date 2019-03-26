@@ -3,7 +3,6 @@ package orderassignment
 import (
 	"../datatypes"
 	"../elevio"
-	"../fsm"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -36,7 +35,7 @@ type optimizationInputJSON struct {
 func encodeJSON(
 	currHallOrders datatypes.ConfirmedHallOrdersMatrix,
 	currAllCabOrders datatypes.ConfirmedCabOrdersMap,
-	currAllNodeStates map[datatypes.NodeID]fsm.NodeState,
+	currAllNodeStates map[datatypes.NodeID]datatypes.NodeState,
 	peerlist []datatypes.NodeID) []byte {
 
 	currStates := make(map[string]singleNodeStateJSON)
@@ -56,21 +55,21 @@ func encodeJSON(
 
 		switch currNodeState.Behaviour {
 
-		case fsm.IdleState, fsm.InitState:
+		case datatypes.IdleState, datatypes.InitState:
 			currBehaviour = "idle"
 			currDirection = "stop"
 
-		case fsm.MovingState:
+		case datatypes.MovingState:
 			currBehaviour = "moving"
 
 			switch currNodeState.Dir {
-			case fsm.Up:
+			case datatypes.Up:
 				currDirection = "up"
-			case fsm.Down:
+			case datatypes.Down:
 				currDirection = "down"
 			}
 
-		case fsm.DoorOpenState:
+		case datatypes.DoorOpenState:
 			currBehaviour = "doorOpen"
 			currDirection = "stop"
 		}
@@ -136,7 +135,7 @@ func OptimalAssigner(
 	LocallyAssignedOrdersChan chan<- datatypes.AssignedOrdersMatrix,
 	ConfirmedHallOrdersChan <-chan datatypes.ConfirmedHallOrdersMatrix,
 	ConfirmedCabOrdersChan <-chan datatypes.ConfirmedCabOrdersMap,
-	AllNodeStatesChan <-chan map[datatypes.NodeID]fsm.NodeState) {
+	AllNodeStatesChan <-chan map[datatypes.NodeID]datatypes.NodeState) {
 
 	// Initialize variables
 	//-------
@@ -146,7 +145,7 @@ func OptimalAssigner(
 	var peerlist []datatypes.NodeID
 
 	optimize := false
-	currAllNodeStates := make(map[datatypes.NodeID]fsm.NodeState)
+	currAllNodeStates := make(map[datatypes.NodeID]datatypes.NodeState)
 	var currOptimizationInputJSON []byte
 	var optimalAssignedOrders map[string]datatypes.AssignedOrdersMatrix
 

@@ -3,7 +3,6 @@ package network
 import (
 	"../consensus"
 	"../datatypes"
-	"../fsm"
 	"../nodestates"
 	"./driver/bcast"
 	"./driver/peers"
@@ -15,7 +14,7 @@ import (
 // Channels used for communication between the network module and
 // other modules.
 type Channels struct {
-	LocalNodeStateChan   chan fsm.NodeState
+	LocalNodeStateChan   chan datatypes.NodeState
 	RemoteNodeStatesChan chan nodestates.NodeStateMsg
 	LocalHallOrdersChan  chan [][]datatypes.Req
 }
@@ -30,7 +29,7 @@ type Channels struct {
 func Module(
 	localID datatypes.NodeID,
 	FsmToggleNetworkVisibilityChan <-chan bool,
-	LocalNodeStateChan <-chan fsm.NodeState,
+	LocalNodeStateChan <-chan datatypes.NodeState,
 	RemoteNodeStatesChan chan<- nodestates.NodeStateMsg,
 	NodeLostChan chan<- datatypes.NodeID,
 	PeerlistUpdateAssignerChan chan<- []datatypes.NodeID,
@@ -77,7 +76,7 @@ func Module(
 	bcastPeriod := 50 * time.Millisecond
 	bcastTimer := time.NewTimer(bcastPeriod)
 
-	localNodeState := fsm.NodeState{}
+	localNodeState := datatypes.NodeState{}
 	var localHallOrders datatypes.HallOrdersMatrix
 	var localCabOrders datatypes.CabOrdersMap
 

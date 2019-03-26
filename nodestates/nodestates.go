@@ -2,31 +2,30 @@ package nodestates
 
 import (
 	"../datatypes"
-	"../fsm"
 )
 
 // NodeStateMsg ...
 // Used for broadcasting the local node state and for receiving remote node states
 type NodeStateMsg struct {
 	ID    datatypes.NodeID
-	State fsm.NodeState
+	State datatypes.NodeState
 }
 
 // Channels ...
 // Used for communication between this module and other modules
 type Channels struct {
-	LocalNodeStateChan chan fsm.NodeState
-	AllNodeStatesChan  chan map[datatypes.NodeID]fsm.NodeState
+	LocalNodeStateChan chan datatypes.NodeState
+	AllNodeStatesChan  chan map[datatypes.NodeID]datatypes.NodeState
 	NodeLostChan       chan datatypes.NodeID
 }
 
 // deepcopyNodeStates ...
 // @return: A pointer to a deep copied map of allNodeStates
-func deepcopyNodeStates(m map[datatypes.NodeID]fsm.NodeState) map[datatypes.NodeID]fsm.NodeState {
-	cpy := make(map[datatypes.NodeID]fsm.NodeState)
+func deepcopyNodeStates(m map[datatypes.NodeID]datatypes.NodeState) map[datatypes.NodeID]datatypes.NodeState {
+	cpy := make(map[datatypes.NodeID]datatypes.NodeState)
 
 	for currID := range m {
-		temp := fsm.NodeState{
+		temp := datatypes.NodeState{
 			Behaviour: m[currID].Behaviour,
 			Floor:     m[currID].Floor,
 			Dir:       m[currID].Dir,
@@ -44,13 +43,13 @@ func deepcopyNodeStates(m map[datatypes.NodeID]fsm.NodeState) map[datatypes.Node
 // be added to the collection of states immediately.
 func Handler(
 	localID datatypes.NodeID,
-	FsmLocalNodeStateChan <-chan fsm.NodeState,
-	NetworkAllNodeStatesChan chan<- map[datatypes.NodeID]fsm.NodeState,
+	FsmLocalNodeStateChan <-chan datatypes.NodeState,
+	NetworkAllNodeStatesChan chan<- map[datatypes.NodeID]datatypes.NodeState,
 	NodeLost <-chan datatypes.NodeID,
-	NetworkLocalNodeStateChan chan<- fsm.NodeState,
+	NetworkLocalNodeStateChan chan<- datatypes.NodeState,
 	RemoteNodeStatesChan <-chan NodeStateMsg) {
 
-	var allNodeStates = make(map[datatypes.NodeID]fsm.NodeState)
+	var allNodeStates = make(map[datatypes.NodeID]datatypes.NodeState)
 
 	for {
 		select {
