@@ -17,7 +17,7 @@ Each node cooperates with one another on a peer to peer basis, and each node pro
 
 The original sketch of the program serves to illustrate the information flow quite well on a higher abstraction level, although some module names have been slightly modified:
 ![Module communication flow](./images/stmch.JPG)
-Format: ![Alt Text](url)
+
 
 
 ## Disclaimer
