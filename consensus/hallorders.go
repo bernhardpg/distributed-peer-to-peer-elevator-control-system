@@ -133,7 +133,7 @@ func HallOrdersModule(
 		// Received changes in peerlist from network module
 		case a := <-PeerlistUpdateChan:
 
-			peerlist = uniqueIDSlice(a)
+			peerlist = UniqueIDSlice(a)
 
 			// Set all inactive hall orders to unknown if alone on network
 			if len(peerlist) <= 1 {

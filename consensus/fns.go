@@ -31,7 +31,7 @@ func merge(
 		if remote.State == datatypes.PendingAck {
 			*pLocal = datatypes.Req{
 				State: datatypes.PendingAck,
-				AckBy: uniqueIDSlice(append(remote.AckBy, localID)),
+				AckBy: UniqueIDSlice(append(remote.AckBy, localID)),
 			}
 		}
 
@@ -44,7 +44,7 @@ func merge(
 			newConfirmedFlag = true
 			break
 		}
-		(*pLocal).AckBy = uniqueIDSlice(append(remote.AckBy, localID))
+		(*pLocal).AckBy = UniqueIDSlice(append(remote.AckBy, localID))
 
 	// Set the local order to Inactive if the remote order is Inactive
 	case datatypes.Confirmed:
@@ -70,13 +70,13 @@ func merge(
 		case datatypes.PendingAck:
 			*pLocal = datatypes.Req{
 				State: datatypes.PendingAck,
-				AckBy: uniqueIDSlice(append(remote.AckBy, localID)),
+				AckBy: UniqueIDSlice(append(remote.AckBy, localID)),
 			}
 
 		case datatypes.Confirmed:
 			*pLocal = datatypes.Req{
 				State: datatypes.Confirmed,
-				AckBy: uniqueIDSlice(append(remote.AckBy, localID)),
+				AckBy: UniqueIDSlice(append(remote.AckBy, localID)),
 			}
 			newConfirmedFlag = true
 
@@ -86,10 +86,10 @@ func merge(
 	return newInactiveFlag, newConfirmedFlag
 }
 
-// uniqueIDSlice ...
+// UniqueIDSlice ...
 // @return: A list of NodeID's not containing any duplicates.
 // (Note that the returned list is not sorted, as this is not required by any other functionality).
-func uniqueIDSlice(IDSlice []datatypes.NodeID) []datatypes.NodeID {
+func UniqueIDSlice(IDSlice []datatypes.NodeID) []datatypes.NodeID {
 
 	keys := make(map[datatypes.NodeID]bool)
 	list := []datatypes.NodeID{}

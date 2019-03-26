@@ -74,6 +74,8 @@ func Module(
 
 	fmt.Println("(network) Initialized")
 
+	fmt.Printf("(network) peerlist: %v\n", peerlist)
+	
 	// Handle network traffic
 	// -----
 
@@ -88,28 +90,28 @@ func Module(
 			fmt.Printf("  Lost:     %q\n", a.Lost)
 
 			// Inform NodeStatesHandler and consensusModules that one ore more nodes are lost from the network
-			if len(a.Lost) != 0 {
-				for _, currID := range a.Lost {
-					NodeLostChan <- (datatypes.NodeID)(currID)
-					LostPeerCabChan <- (datatypes.NodeID)(currID)
-				}
+			for _, currID := range a.Lost {
+				NodeLostChan <- (datatypes.NodeID)(currID)
+				LostPeerCabChan <- (datatypes.NodeID)(currID)
 			}
 
-			// Notify consensus modules and orderassigner of changes
-			if len(a.Lost) != 0 || len(a.New) != 0 {
-				for _, currID := range a.Peers {
-					peerlist = append(peerlist, (datatypes.NodeID)(currID))
-				}
-
-				// Make sure that the current node is always in peerlist
-				if !consensus.ContainsID(peerlist, localID){
-					peerlist = append(peerlist, localID)
-				}
-
-				PeerlistUpdateHallChan <- peerlist
-				PeerlistUpdateCabChan <- peerlist
-				PeerlistUpdateAssignerChan <- peerlist
+			// Empty peerlist and add all new peers as NodeIDs
+			peerlist = []datatypes.NodeID{}
+			for _, currID := range a.Peers {
+				peerlist = append(peerlist, (datatypes.NodeID)(currID))
 			}
+
+			// Make sure that the current node is always in peerlist
+			if !consensus.ContainsID(peerlist, localID){
+				peerlist = append(peerlist, localID)
+			}
+			fmt.Printf("(network) peerlist: %v\n", peerlist)
+
+			PeerlistUpdateHallChan <- peerlist
+			PeerlistUpdateCabChan <- peerlist
+			PeerlistUpdateAssignerChan <- peerlist
+
+
 
 
 		// Let FSM toggle network visibility (due to obstructions)

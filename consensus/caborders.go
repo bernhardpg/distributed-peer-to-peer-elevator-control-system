@@ -160,7 +160,7 @@ func CabOrdersModule(
 
 		// Update peerlistpeerlist  with changes received from network module
 		case a := <-PeerlistUpdateChan:
-			peerlist = uniqueIDSlice(a)
+			peerlist = UniqueIDSlice(a)
 
 		// Set all Inactive orders of a lost node to Unknown
 		// (To avoid overiding any changes in the nodes' cab orders while offline)

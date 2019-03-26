@@ -163,9 +163,7 @@ func OptimalAssigner(
 
 		case a := <-PeerlistUpdateChan:
 			peerlist = a
-
 			optimize = true
-			fmt.Println("peerlist: ", peerlist)
 
 		// Optimize each time allNodeStates are updated
 		case a := <-AllNodeStatesChan:
