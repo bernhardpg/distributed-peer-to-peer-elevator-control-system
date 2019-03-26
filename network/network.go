@@ -63,7 +63,7 @@ func Module(
 
 	// Initialize variables
 	// -----
-	bcastPeriod := 200 * time.Millisecond // TODO change this
+	bcastPeriod := 50 * time.Millisecond // TODO change this
 	bcastTimer := time.NewTimer(bcastPeriod)
 
 	localState := fsm.NodeState{}
@@ -79,11 +79,11 @@ func Module(
 		select {
 
 		case a := <-peerUpdateChan:
-			/*// Print info
+			// Print info
 			fmt.Printf("Peer update:\n")
 			fmt.Printf("  Peers:    %q\n", a.Peers)
 			fmt.Printf("  New:      %q\n", a.New)
-			fmt.Printf("  Lost:     %q\n", a.Lost)*/
+			fmt.Printf("  Lost:     %q\n", a.Lost)
 
 			// Inform NodeStatesHandler and consensusModules that one ore more nodes are lost from the network
 			if len(a.Lost) != 0 {

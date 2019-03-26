@@ -15,11 +15,12 @@ Tirsdag:
 - Clean up light channels
 - Check out orderassignment and initializing of variables
 - Packet loss
-- IMPORTANT: Handle physical obstruction (timout in fsm, signal to network that node is to be regarded as offline) (Or, stop broadcasting for 20 secs, then reboot).
 - Fix elev dir calc
+- Implement jitter??
 
 
 ### DONE
+- IMPORTANT: Handle physical obstruction (timout in fsm, signal to network that node is to be regarded as offline) (Or, stop broadcasting for 20 secs, then reboot).
 - Deep copy?? Fixed in nodestates!!
 - Rewrite fsm: BUGFIX: calculateNextOrder will loop forever if currOrder is removed by optimalOrderassigner (or what?)
 - Change NodeID to string?
