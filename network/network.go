@@ -93,7 +93,7 @@ func Module(
 				}
 			}
 
-			// Notify consensus modules of changes
+			// Notify consensus modules and orderassigner of changes
 			if len(a.Lost) != 0 || len(a.New) != 0 {
 				var peerlist []datatypes.NodeID
 
@@ -101,10 +101,16 @@ func Module(
 					peerlist = append(peerlist, (datatypes.NodeID)(currID))
 				}
 
+				// Make sure that the current node is always in peerlist
+				if len(peerlist) == 0 {
+					peerlist = []datatypes.NodeID{localID}
+				}
+
 				PeerlistUpdateHallChan <- peerlist
 				PeerlistUpdateCabChan <- peerlist
 				PeerlistUpdateAssignerChan <- peerlist
 			}
+
 
 		// Let FSM toggle network visibility (due to obstructions)
 		case a := <- FsmToggleNetworkVisibilityChan:
