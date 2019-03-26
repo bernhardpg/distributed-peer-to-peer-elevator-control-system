@@ -38,5 +38,5 @@ Taking a look at the [datatypes](./datatypes/datatypes.go) is recommended to get
 
 ### Disclaimer
 The following code sections were entirely or partly copied from other works:
-- The hall request assigner used by [OptimalAssigner function](./orderassignment/orderassignment.go) was made by github user [klasbo](https://github.com/klasbo) and handed out. The source and documentation can be found [here](https://github.com/TTK4145/Project-resources/tree/master/cost_fns/hall_request_assigner/).
+- The hall request assigner used by [OptimalAssigner](./orderassignment/orderassignment.go) was made by github user [klasbo](https://github.com/klasbo) and handed out. The source and documentation can be found [here](https://github.com/TTK4145/Project-resources/tree/master/cost_fns/hall_request_assigner/).
 - The [network driver](./network/driver) package is mostly identical to the one handed out, which can be found [here](https://github.com/TTK4145/Network-go/).
