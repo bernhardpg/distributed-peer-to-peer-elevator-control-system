@@ -18,9 +18,7 @@ Each node cooperates with one another on a peer to peer basis, and each node pro
 The original sketch of the program serves to illustrate the information flow quite well on a higher abstraction level, although some module names have been slightly modified:
 ![Module communication flow](./images/stmch.JPG)
 
-
-
 ## Disclaimer
 The following code sections were entirely or partly copied from other works:
-    - The hall request assigner used by [OptimalAssigner function](./orderassignment/orderassignment.go) was made by github user [klasbo](https://github.com/klasbo) and handed out. The source and documentation can be found [here](https://github.com/klasbo)https://github.com/TTK4145/Project-resources/tree/master/cost_fns/hall_request_assigner/README.md).
+    - The hall request assigner used by [OptimalAssigner function](./orderassignment/orderassignment.go) was made by github user [klasbo](https://github.com/klasbo) and handed out. The source and documentation can be found [here](https://github.com/TTK4145/Project-resources/tree/master/cost_fns/hall_request_assigner/README.md).
     - The [network driver](./network/driver) package is mostly identical to the one handed out, which can be found [here](https://github.com/TTK4145/Network-go/README.md).
