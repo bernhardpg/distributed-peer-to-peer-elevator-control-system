@@ -104,9 +104,9 @@ func uniqueIDSlice(IDSlice []datatypes.NodeID) []datatypes.NodeID {
 	return list
 }
 
-// containtsID ...
+// ContaintsID ...
 // @return: Whether or not the NodeID list passed as the first argument contains the NodeID passed as the second param
-func containsID(s []datatypes.NodeID, e datatypes.NodeID) bool {
+func ContainsID(s []datatypes.NodeID, e datatypes.NodeID) bool {
 	for _, a := range s {
 		if a == e {
 			return true
@@ -119,7 +119,7 @@ func containsID(s []datatypes.NodeID, e datatypes.NodeID) bool {
 // @return: true if primaryList contains listFraction, else otherwise
 func containsList(primaryList []datatypes.NodeID, listFraction []datatypes.NodeID) bool {
 	for _, a := range listFraction {
-		if !containsID(primaryList, a) {
+		if !ContainsID(primaryList, a) {
 			return false
 		}
 	}

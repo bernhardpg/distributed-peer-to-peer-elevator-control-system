@@ -63,6 +63,8 @@ func Module(
 
 	// Initialize variables
 	// -----
+	peerlist := []datatypes.NodeID{localID}
+
 	bcastPeriod := 50 * time.Millisecond // TODO change this
 	bcastTimer := time.NewTimer(bcastPeriod)
 
@@ -95,15 +97,13 @@ func Module(
 
 			// Notify consensus modules and orderassigner of changes
 			if len(a.Lost) != 0 || len(a.New) != 0 {
-				var peerlist []datatypes.NodeID
-
 				for _, currID := range a.Peers {
 					peerlist = append(peerlist, (datatypes.NodeID)(currID))
 				}
 
 				// Make sure that the current node is always in peerlist
-				if len(peerlist) == 0 {
-					peerlist = []datatypes.NodeID{localID}
+				if !consensus.ContainsID(peerlist, localID){
+					peerlist = append(peerlist, localID)
 				}
 
 				PeerlistUpdateHallChan <- peerlist
@@ -141,6 +141,13 @@ func Module(
 		case <-bcastTimer.C:
 			bcastTimer.Reset(bcastPeriod)
 
+			// Send cabOrders directly as remote if alone in peerlist.
+			// (Orders can only be confirmed by comparing local and remote cab orders information) 
+			if consensus.ContainsID(peerlist, localID) && len(peerlist) == 1 {
+				RemoteCabOrdersChan <- localCabOrders
+				break
+			}
+
 			localStateTx <- nodestates.NodeStateMsg {
 				ID:    localID,
 				State: localState,
@@ -155,6 +162,7 @@ func Module(
 				ID:         localID, // This is actually never used, but is included for consistency on network
 				CabOrders:  localCabOrders,
 			}
+
 		}
 	}
 }
