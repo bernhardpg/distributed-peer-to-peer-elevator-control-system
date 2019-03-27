@@ -26,7 +26,7 @@ const (
 	InitState NodeBehaviour = iota
 
 	// IdleState ...
-	// Node is standing still without orders.
+	// Node is standing still at a floor, with doors closed and no assigned orders.
 	IdleState
 
 	// DoorOpenState ...
