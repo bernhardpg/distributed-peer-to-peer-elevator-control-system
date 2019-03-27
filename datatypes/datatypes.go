@@ -9,11 +9,13 @@ import (
 // -------------
 
 // NodeID ...
-// Used to hold the ID of an elevator node all over the program
+// Used to hold the ID of an elevator node all over the program.
 type NodeID string
 
 // NodeBehaviour ...
 // Contains the current behaviour of a node.
+// (Not to be confused with NodeState, which contains the
+// NodeBehaviour as a property)
 type NodeBehaviour int
 
 // Possible node behaviours
@@ -48,7 +50,7 @@ const (
 )
 
 // NodeState ...
-// Contains all the state information of a node
+// Contains all the state information of a node.
 type NodeState struct {
 	Behaviour NodeBehaviour
 	Floor     int
@@ -57,7 +59,7 @@ type NodeState struct {
 
 // AllNodeStatesMap ...
 // Data structure used to contain the node states of all the
-// nodes currently in the peerlist
+// nodes currently in the peerlist.
 type AllNodeStatesMap map[NodeID]NodeState
 
 // -------------
