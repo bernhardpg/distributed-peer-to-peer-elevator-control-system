@@ -99,7 +99,7 @@ const (
 )
 
 // HallOrdersMatrix ...
-// Used to represent all the hall orders and their state on the network
+// Holds all the hall orders and their level of consensus on the network
 type HallOrdersMatrix [elevio.NumFloors][2]Req
 
 // ConfirmedHallOrdersMatrix ...
@@ -115,7 +115,7 @@ type ConfirmedHallOrdersMatrix [elevio.NumFloors][2]bool
 type CabOrdersList []Req
 
 // CabOrdersMap ...
-// Holds all the cab orders for all nodes currently in the system.
+// Holds all the cab orders (and their level of consensus) for all nodes currently in the system.
 type CabOrdersMap map[NodeID]CabOrdersList
 
 // ConfirmedCabOrdersList ...
@@ -129,6 +129,6 @@ type ConfirmedCabOrdersList []bool
 type ConfirmedCabOrdersMap map[NodeID]ConfirmedCabOrdersList
 
 // AssignedOrdersMatrix ...
-// Contains all the orders assigned to the current elevator, both
-// hall orders and cab orders, as boolean values.
+// Contains all the orders assigned to the current elevator node, both
+// the hall orders and the cab orders, as boolean values.
 type AssignedOrdersMatrix [elevio.NumFloors][3]bool
