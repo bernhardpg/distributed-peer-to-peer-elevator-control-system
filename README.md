@@ -1,4 +1,6 @@
-# TTK4145 Elevator Project – Spring 2019
+# Distributed Peer-to-Peer System for Realtime Control and Planning of Elevators
+
+## TTK4145 Elevator Project – Spring 2019
 
 This project aims to set up a network of `n` cooperative elevators on a network, running on `m` floors. By default, it runs with three nodes and four floors.
 
